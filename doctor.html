@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor · Smart Health · Clinical Dashboard</title>
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+    <!-- Chart.js and ApexCharts for real-time and historical graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <!-- Firebase (commented out – uncomment when backend is ready) -->
+    <!-- <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script> -->
+    <!-- MQTT library (real connection, currently simulated internally) -->
+    <!-- <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script> -->
+    <style>
+        /* ---------- RESET & GLOBAL ---------- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* ---------- CSS VARIABLES (LIGHT/DARK THEMES) ---------- */
+        :root {
+            --bg-body: #f8fafd;
+            --text-primary: #1e293b;
+            --text-secondary: #475569;
+            --sidebar-bg: #ffffff;
+            --sidebar-border: #e9eef2;
+            --card-bg: #ffffff;
+            --card-border: #edf2f7;
+            --input-border: #e2e8f0;
+            --input-bg: #ffffff;
+            --hover-bg: #f8fafc;
+            --active-bg: #eef2ff;
+            --active-color: #2563eb;
+            --icon-color: #64748b;
+            --stat-sub-color: #3b82f6;
+            --badge-completed-bg: #dcfce7;
+            --badge-completed-color: #166534;
+            --badge-delayed-bg: #fee2e2;
+            --badge-delayed-color: #b91c1c;
+            --badge-risk-bg: #fff3cd;
+            --badge-risk-color: #856404;
+            --badge-ongoing-bg: #e6f0ff;
+            --badge-ongoing-color: #2563eb;
+            --alert-bg: #fff8e8;
+            --alert-border: #f59e0b;
+            --chart-grid: rgba(0,0,0,0.05);
+        }
+
+        [data-theme="dark"] {
+            --bg-body: #0b1120;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --sidebar-bg: #1e293b;
+            --sidebar-border: #334155;
+            --card-bg: #1e293b;
+            --card-border: #334155;
+            --input-border: #334155;
+            --input-bg: #0f172a;
+            --hover-bg: #334155;
+            --active-bg: #2563eb20;
+            --active-color: #60a5fa;
+            --icon-color: #94a3b8;
+            --stat-sub-color: #60a5fa;
+            --badge-completed-bg: #16653440;
+            --badge-completed-color: #86efac;
+            --badge-delayed-bg: #b91c1c40;
+            --badge-delayed-color: #fca5a5;
+            --badge-risk-bg: #854d0e40;
+            --badge-risk-color: #fde047;
+            --badge-ongoing-bg: #2563eb40;
+            --badge-ongoing-color: #93c5fd;
+            --alert-bg: #854d0e20;
+            --alert-border: #fbbf24;
+            --chart-grid: rgba(255,255,255,0.05);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-body);
+            color: var(--text-primary);
+            line-height: 1.5;
+            overflow-x: hidden;
+            transition: background 0.3s ease, color 0.2s ease;
+        }
+
+        /* ---------- SIDEBAR ---------- */
+        .app-wrapper {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--sidebar-border);
+            padding: 2rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            transition: width 0.3s ease, background 0.3s ease;
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.02);
+        }
+
+        .sidebar.collapsed {
+            width: 80px;
+            padding: 2rem 0.8rem;
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 2.5rem;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            font-weight: 700;
+            font-size: 1.4rem;
+            color: var(--active-color);
+        }
+
+        .logo-area i {
+            font-size: 2rem;
+            background: linear-gradient(145deg, #2563eb, #7c3aed);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .collapse-btn {
+            background: none;
+            border: 1px solid var(--input-border);
+            border-radius: 12px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--icon-color);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .collapse-btn:hover {
+            background: var(--hover-bg);
+            color: var(--active-color);
+            border-color: var(--active-color);
+        }
+
+        .sidebar-menu {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.8rem 1rem;
+            border-radius: 16px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            transition: all 0.2s;
+            cursor: pointer;
+            white-space: nowrap;
+            text-decoration: none;
+        }
+
+        .menu-item i {
+            font-size: 1.3rem;
+            width: 24px;
+            color: var(--icon-color);
+        }
+
+        .menu-item.active {
+            background: var(--active-bg);
+            color: var(--active-color);
+        }
+
+        .menu-item.active i {
+            color: var(--active-color);
+        }
+
+        .menu-item:hover:not(.active) {
+            background: var(--hover-bg);
+            color: var(--text-primary);
+        }
+
+        .sidebar.collapsed .menu-item span {
+            display: none;
+        }
+
+        .sidebar.collapsed .logo-area span {
+            display: none;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            border-top: 1px solid var(--sidebar-border);
+            padding-top: 1.5rem;
+        }
+
+        /* ---------- MAIN CONTENT ---------- */
+        .main-content {
+            flex: 1;
+            padding: 2rem 2.5rem;
+            overflow-y: auto;
+        }
+
+        /* top header */
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+        }
+
+        .search-area {
+            display: flex;
+            align-items: center;
+            background: var(--card-bg);
+            border-radius: 60px;
+            padding: 0.3rem 0.3rem 0.3rem 1.5rem;
+            border: 1px solid var(--input-border);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        }
+
+        .search-area i {
+            color: var(--icon-color);
+        }
+
+        .search-area input {
+            border: none;
+            padding: 0.6rem 1rem;
+            font-size: 0.95rem;
+            width: 260px;
+            outline: none;
+            background: transparent;
+            color: var(--text-primary);
+        }
+
+        .search-area button {
+            background: var(--active-color);
+            border: none;
+            border-radius: 40px;
+            padding: 0.6rem 1.5rem;
+            color: white;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .search-area button:hover {
+            opacity: 0.9;
+        }
+
+        .date-badge {
+            background: var(--card-bg);
+            border-radius: 40px;
+            padding: 0.5rem 1.5rem;
+            border: 1px solid var(--input-border);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            color: var(--text-primary);
+        }
+
+        .date-badge i {
+            color: var(--active-color);
+        }
+
+        /* stats cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            border-radius: 28px;
+            padding: 1.6rem 1.5rem;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.03);
+            border: 1px solid var(--card-border);
+            transition: 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 30px -8px rgba(37,99,235,0.1);
+            border-color: var(--active-color);
+        }
+
+        .stat-title {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .stat-sub {
+            color: var(--stat-sub-color);
+            font-weight: 600;
+            margin-top: 0.3rem;
+            font-size: 0.9rem;
+        }
+
+        /* patient selector */
+        .patient-selector {
+            max-width: 280px;
+            margin-bottom: 2rem;
+        }
+
+        .patient-selector label {
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 0.4rem;
+            display: block;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.8rem 1.2rem;
+            border: 1.5px solid var(--input-border);
+            border-radius: 30px;
+            font-size: 0.95rem;
+            background: var(--input-bg);
+            color: var(--text-primary);
+            outline: none;
+            transition: 0.2s;
+        }
+
+        .form-control:focus {
+            border-color: var(--active-color);
+            box-shadow: 0 0 0 4px rgba(37,99,235,0.1);
+        }
+
+        /* vitals grid */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.8rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 28px;
+            padding: 1.8rem;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.03);
+            border: 1px solid var(--card-border);
+            transition: all 0.2s;
+        }
+
+        .card:hover {
+            border-color: var(--active-color);
+            box-shadow: 0 20px 30px -8px rgba(0,0,0,0.05);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            margin-bottom: 1.2rem;
+        }
+
+        .card-header i {
+            font-size: 2rem;
+            color: var(--active-color);
+            background: var(--active-bg);
+            padding: 0.6rem;
+            border-radius: 18px;
+        }
+
+        .card-header h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .card-value {
+            font-size: 2.6rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .card-value span {
+            font-size: 1rem;
+            font-weight: 400;
+            color: var(--text-secondary);
+        }
+
+        .card-indicator {
+            display: inline-block;
+            padding: 0.25rem 1rem;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .indicator-normal {
+            background: var(--badge-completed-bg);
+            color: var(--badge-completed-color);
+        }
+
+        .indicator-warning {
+            background: var(--badge-risk-bg);
+            color: var(--badge-risk-color);
+            animation: pulse 1.5s infinite;
+        }
+
+        .indicator-danger {
+            background: var(--badge-delayed-bg);
+            color: var(--badge-delayed-color);
+            animation: shake 0.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.8; }
+            50% { opacity: 1; }
+            100% { opacity: 0.8; }
+        }
+        @keyframes shake {
+            0%,100% { transform: translateX(0); }
+            25% { transform: translateX(3px); }
+            75% { transform: translateX(-3px); }
+        }
+
+        .chart-container { height: 120px; margin-top: 1rem; }
+
+        /* recent patients table */
+        .table-section {
+            background: var(--card-bg);
+            border-radius: 28px;
+            padding: 1.8rem;
+            margin: 2.5rem 0;
+            border: 1px solid var(--card-border);
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .table-header h3 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .table-header button {
+            background: none;
+            border: 1px solid var(--input-border);
+            border-radius: 30px;
+            padding: 0.5rem 1.5rem;
+            font-weight: 600;
+            color: var(--active-color);
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .table-header button:hover {
+            background: var(--active-bg);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 1rem 0.5rem 0.8rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        td {
+            padding: 1rem 0.5rem;
+            border-bottom: 1px solid var(--card-border);
+            color: var(--text-primary);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 1rem;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-completed { background: var(--badge-completed-bg); color: var(--badge-completed-color); }
+        .status-delayed { background: var(--badge-delayed-bg); color: var(--badge-delayed-color); }
+        .status-risk { background: var(--badge-risk-bg); color: var(--badge-risk-color); }
+        .status-ongoing { background: var(--badge-ongoing-bg); color: var(--badge-ongoing-color); }
+
+        /* alerts section */
+        .alerts-section {
+            background: var(--card-bg);
+            border-radius: 28px;
+            padding: 1.8rem;
+            margin: 2rem 0;
+            border: 1px solid var(--card-border);
+        }
+
+        .alerts-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.2rem;
+        }
+
+        .alerts-header h3 {
+            font-size: 1.4rem;
+            font-weight: 700;
+        }
+
+        .mute-button {
+            background: none;
+            border: 1px solid var(--input-border);
+            border-radius: 40px;
+            padding: 0.5rem 1.2rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .mute-button.muted {
+            color: var(--active-color);
+            border-color: var(--active-color);
+        }
+
+        .alerts-list {
+            max-height: 250px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.7rem;
+        }
+
+        .alert-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 1.2rem;
+            background: var(--alert-bg);
+            border-left: 5px solid var(--alert-border);
+            border-radius: 16px;
+            margin-bottom: 0.5rem;
+            animation: slideIn 0.3s ease;
+        }
+
+        .alert-item i {
+            font-size: 1.4rem;
+            color: var(--alert-border);
+        }
+
+        .alert-content {
+            flex: 1;
+        }
+
+        .alert-title {
+            font-weight: 700;
+        }
+
+        .alert-time {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* export button */
+        .export-btn {
+            background: var(--active-color);
+            color: white;
+            border: none;
+            border-radius: 40px;
+            padding: 0.6rem 1.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 1rem;
+        }
+
+        /* responsiveness */
+        @media (max-width: 1200px) {
+            .stats-grid { grid-template-columns: repeat(2,1fr); }
+        }
+
+        @media (max-width: 900px) {
+            .app-wrapper { flex-direction: column; }
+            .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--sidebar-border); }
+            .main-content { padding: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-wrapper">
+        <!-- SIDEBAR with clickable links -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-area">
+                    <i class="fas fa-heartbeat"></i>
+                    <span>SmartHealth</span>
+                </div>
+                <button class="collapse-btn" id="collapseSidebar"><i class="fas fa-chevron-left"></i></button>
+            </div>
+            <div class="sidebar-menu">
+                <a href="javascript:void(0)" class="menu-item active" data-page="dashboard">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="javascript:void(0)" class="menu-item" data-page="appointments">
+                    <i class="fas fa-calendar-check"></i>
+                    <span>Appointments</span>
+                </a>
+                <a href="javascript:void(0)" class="menu-item" data-page="patients">
+                    <i class="fas fa-users"></i>
+                    <span>Patients</span>
+                </a>
+                <a href="javascript:void(0)" class="menu-item" data-page="timelog">
+                    <i class="fas fa-clock"></i>
+                    <span>Time log</span>
+                </a>
+                <a href="javascript:void(0)" class="menu-item" data-page="reports">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Reports</span>
+                </a>
+                <a href="javascript:void(0)" class="menu-item" data-page="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+            </div>
+            <div class="sidebar-footer">
+                <a href="javascript:void(0)" class="menu-item" data-page="support">
+                    <i class="fas fa-headset"></i>
+                    <span>Support</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+            <!-- Top bar with search, date, and theme toggle -->
+            <div class="top-bar">
+                <div class="search-area">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Search patients...">
+                    <button><i class="fas fa-sliders-h"></i> Filters</button>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <div class="date-badge">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span>Last 30 days</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <!-- Theme Toggle Button -->
+                    <button class="collapse-btn" id="themeToggle" style="width:45px;height:45px;">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- STATS CARDS (Overview) -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-title">Total Patients</div>
+                    <div class="stat-value">248</div>
+                    <div class="stat-sub"><i class="fas fa-arrow-up"></i> +12%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Critical Cases</div>
+                    <div class="stat-value">12</div>
+                    <div class="stat-sub"><i class="fas fa-exclamation-triangle" style="color:#e11d48;"></i> high</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Avg. HR (today)</div>
+                    <div class="stat-value">74 <span style="font-size:1rem;">bpm</span></div>
+                    <div class="stat-sub">normal range</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Bed Occupancy</div>
+                    <div class="stat-value">86<small style="font-size:1rem;">%</small></div>
+                    <div class="stat-sub">32/37 beds</div>
+                </div>
+            </div>
+
+            <!-- PATIENT SELECTOR (for demo) -->
+            <div class="patient-selector">
+                <label><i class="fas fa-user-md"></i> Select patient</label>
+                <select class="form-control" id="patientSelect">
+                    <option value="p1">John Doe (ICU)</option>
+                    <option value="p2">Jane Smith (General)</option>
+                    <option value="p3">Robert Brown (ER)</option>
+                </select>
+            </div>
+
+            <!-- VITALS GRID (Real-time patient data) -->
+            <div class="cards-grid" id="doctorVitals">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-heart"></i>
+                        <h3>Heart Rate</h3>
+                    </div>
+                    <div class="card-value" id="heartValue">-- <span>bpm</span></div>
+                    <div class="card-indicator" id="heartIndicator">Normal</div>
+                    <div class="chart-container">
+                        <canvas id="heartChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-lungs"></i>
+                        <h3>SpO₂</h3>
+                    </div>
+                    <div class="card-value" id="spo2Value">-- <span>%</span></div>
+                    <div class="card-indicator" id="spo2Indicator">Normal</div>
+                    <div class="chart-container">
+                        <canvas id="spo2Chart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-thermometer-half"></i>
+                        <h3>Body Temp</h3>
+                    </div>
+                    <div class="card-value" id="tempValue">-- <span>°C</span></div>
+                    <div class="card-indicator" id="tempIndicator">Normal</div>
+                    <div class="chart-container">
+                        <canvas id="tempChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-temperature-high"></i>
+                        <h3>Room Temp</h3>
+                    </div>
+                    <div class="card-value" id="roomTempValue">-- <span>°C</span></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-tint"></i>
+                        <h3>Humidity</h3>
+                    </div>
+                    <div class="card-value" id="humidityValue">-- <span>%</span></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-person-walking"></i>
+                        <h3>Position</h3>
+                    </div>
+                    <div class="card-value" id="positionValue">--</div>
+                    <div class="card-indicator" id="positionIndicator">Normal</div>
+                </div>
+            </div>
+
+            <!-- BUTTON EXPORT (simulated PDF) -->
+            <button class="export-btn" id="exportBtn"><i class="fas fa-download"></i> Export Report (PDF)</button>
+
+            <!-- RECENT PATIENTS TABLE (like project summary) -->
+            <div class="table-section">
+                <div class="table-header">
+                    <h3><i class="fas fa-users"></i> Recent Patients</h3>
+                    <button>View all <i class="fas fa-arrow-right"></i></button>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Patient</th>
+                            <th>Last Visit</th>
+                            <th>Condition</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><b>Emily Davis</b></td><td>25 Mar 2025</td><td>Post-surgery</td><td><span class="status-badge status-completed">Stable</span></td></tr>
+                        <tr><td><b>Michael Chen</b></td><td>24 Mar 2025</td><td>Arrhythmia</td><td><span class="status-badge status-risk">At risk</span></td></tr>
+                        <tr><td><b>Sophia Rodriguez</b></td><td>23 Mar 2025</td><td>Respiratory</td><td><span class="status-badge status-delayed">Critical</span></td></tr>
+                        <tr><td><b>James Wilson</b></td><td>22 Mar 2025</td><td>Routine check</td><td><span class="status-badge status-ongoing">Follow-up</span></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- ALERTS SECTION with mute button -->
+            <div class="alerts-section">
+                <div class="alerts-header">
+                    <h3><i class="fas fa-bell"></i> Active Alerts</h3>
+                    <button class="mute-button" id="muteAlerts"><i class="fas fa-volume-up"></i> Mute</button>
+                </div>
+                <div class="alerts-list" id="alertsList">
+                    <!-- Alerts will be injected by JavaScript -->
+                </div>
+            </div>
+
+            <!-- HISTORICAL TRENDS (24h) -->
+            <h2>📈 Historical Trends (24h)</h2>
+            <div class="cards-grid">
+                <div class="card">
+                    <h3>Heart Rate</h3>
+                    <div id="heartHistoryChart" style="height: 250px;"></div>
+                </div>
+                <div class="card">
+                    <h3>SpO₂</h3>
+                    <div id="spo2HistoryChart" style="height: 250px;"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- JavaScript (all functionality integrated) -->
+    <script>
+        (function() {
+            "use strict";
+
+            // ==================== GLOBAL VARIABLES ====================
+            let mqttSimInterval;                // Interval for simulated MQTT updates
+            let alertSoundEnabled = true;        // Sound toggle state
+
+            // -------------------- Alert Sound using Web Audio API --------------------
+            const alertSound = (() => {
+                try {
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    return (type = 'warning') => {
+                        if (!alertSoundEnabled) return;                     // Do nothing if muted
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        osc.frequency.value = type === 'danger' ? 800 : 400; // Higher pitch for danger
+                        gain.gain.value = 0.2;                               // Volume
+                        osc.start();
+                        osc.stop(audioCtx.currentTime + 0.2);
+                    };
+                } catch (e) {
+                    // Fallback if Web Audio API is not supported
+                    return () => {};
+                }
+            })();
+
+            // ==================== THEME TOGGLE (DARK/LIGHT) ====================
+            const themeToggle = document.getElementById('themeToggle');
+            const html = document.documentElement;
+            const themeIcon = themeToggle.querySelector('i');
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            html.setAttribute('data-theme', savedTheme);
+            themeIcon.className = savedTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+
+            themeToggle.addEventListener('click', () => {
+                const current = html.getAttribute('data-theme');
+                const newTheme = current === 'dark' ? 'light' : 'dark';
+                html.setAttribute('data-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+                themeIcon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            });
+
+            // ==================== SIDEBAR COLLAPSE ====================
+            const sidebar = document.getElementById('sidebar');
+            const collapseBtn = document.getElementById('collapseSidebar');
+            collapseBtn.addEventListener('click', () => {
+                sidebar.classList.toggle('collapsed');
+                const icon = collapseBtn.querySelector('i');
+                if (sidebar.classList.contains('collapsed')) {
+                    icon.classList.remove('fa-chevron-left');
+                    icon.classList.add('fa-chevron-right');
+                } else {
+                    icon.classList.remove('fa-chevron-right');
+                    icon.classList.add('fa-chevron-left');
+                }
+            });
+
+            // ==================== SIDEBAR ACTIVE STATE ====================
+            const menuItems = document.querySelectorAll('.menu-item');
+            menuItems.forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();  // Prevent default anchor behavior
+                    menuItems.forEach(i => i.classList.remove('active'));
+                    this.classList.add('active');
+                    // Future: Add real navigation based on data-page attribute
+                });
+            });
+
+            // ==================== MUTE ALERTS BUTTON ====================
+            const muteBtn = document.getElementById('muteAlerts');
+            muteBtn.addEventListener('click', () => {
+                alertSoundEnabled = !alertSoundEnabled;
+                muteBtn.innerHTML = alertSoundEnabled ? '<i class="fas fa-volume-up"></i> Mute' : '<i class="fas fa-volume-mute"></i> Unmute';
+                muteBtn.classList.toggle('muted', !alertSoundEnabled);
+            });
+
+            // ==================== REAL-TIME CHARTS (Chart.js) ====================
+            const heartCtx = document.getElementById('heartChart')?.getContext('2d');
+            const spo2Ctx = document.getElementById('spo2Chart')?.getContext('2d');
+            const tempCtx = document.getElementById('tempChart')?.getContext('2d');
+
+            let heartChart, spo2Chart, tempChart;
+            const heartHistory = [], spo2History = [], tempHistory = [], timeLabels = [];
+
+            if (heartCtx) {
+                heartChart = new Chart(heartCtx, {
+                    type: 'line',
+                    data: { labels: [], datasets: [{ label: 'Heart Rate', data: [], borderColor: '#2563eb', backgroundColor: '#2563eb20', tension: 0.3, fill: true }] },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 40, max: 120 } }, plugins: { legend: { display: false } } }
+                });
+            }
+            if (spo2Ctx) {
+                spo2Chart = new Chart(spo2Ctx, {
+                    type: 'line',
+                    data: { labels: [], datasets: [{ label: 'SpO2', data: [], borderColor: '#10b981', backgroundColor: '#10b98120', tension: 0.3, fill: true }] },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 85, max: 100 } }, plugins: { legend: { display: false } } }
+                });
+            }
+            if (tempCtx) {
+                tempChart = new Chart(tempCtx, {
+                    type: 'line',
+                    data: { labels: [], datasets: [{ label: 'Temp', data: [], borderColor: '#f59e0b', backgroundColor: '#f59e0b20', tension: 0.3, fill: true }] },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 35, max: 39 } }, plugins: { legend: { display: false } } }
+                });
+            }
+
+            // Function to update real-time charts with new data
+            function updateCharts(heart, spo2, temp) {
+                const now = new Date().toLocaleTimeString();
+                if (heart) { heartHistory.push(heart); if (heartHistory.length > 20) heartHistory.shift(); }
+                if (spo2) { spo2History.push(spo2); if (spo2History.length > 20) spo2History.shift(); }
+                if (temp) { tempHistory.push(temp); if (tempHistory.length > 20) tempHistory.shift(); }
+                timeLabels.push(now);
+                if (timeLabels.length > 20) timeLabels.shift();
+
+                if (heartChart) { heartChart.data.labels = timeLabels; heartChart.data.datasets[0].data = heartHistory; heartChart.update(); }
+                if (spo2Chart) { spo2Chart.data.labels = timeLabels; spo2Chart.data.datasets[0].data = spo2History; spo2Chart.update(); }
+                if (tempChart) { tempChart.data.labels = timeLabels; tempChart.data.datasets[0].data = tempHistory; tempChart.update(); }
+            }
+
+            // ==================== HISTORICAL CHARTS (ApexCharts) ====================
+            const heartHistoryChart = new ApexCharts(document.querySelector("#heartHistoryChart"), {
+                chart: { type: 'area', height: 250, animations: { enabled: true, speed: 500 } },
+                series: [{ name: 'Heart Rate', data: [72,75,71,73,74,72,70,73,75,74,73,72] }],
+                xaxis: { categories: ['00','02','04','06','08','10','12','14','16','18','20','22'] },
+                colors: ['#2563eb'],
+                fill: { type: 'gradient' }
+            });
+            heartHistoryChart.render();
+
+            const spo2HistoryChart = new ApexCharts(document.querySelector("#spo2HistoryChart"), {
+                chart: { type: 'area', height: 250, animations: { enabled: true, speed: 500 } },
+                series: [{ name: 'SpO₂', data: [98,97,98,99,98,97,98,98,97,98,99,98] }],
+                xaxis: { categories: ['00','02','04','06','08','10','12','14','16','18','20','22'] },
+                colors: ['#10b981'],
+                fill: { type: 'gradient' }
+            });
+            spo2HistoryChart.render();
+
+            // ==================== SIMULATED MQTT UPDATES ====================
+            // Generates random realistic vital signs
+            function generateRandomVitals() {
+                return {
+                    heart: Math.floor(Math.random() * (85-65+1)) + 65,
+                    spo2: Math.floor(Math.random() * (99-94+1)) + 94,
+                    temp: (Math.random() * (37.5-36.0) + 36.0).toFixed(1),
+                    roomTemp: Math.floor(Math.random() * (25-22+1)) + 22,
+                    humidity: Math.floor(Math.random() * (60-40+1)) + 40,
+                    position: ['sitting', 'standing', 'lying', 'walking'][Math.floor(Math.random() * 4)]
+                };
+            }
+
+            // Update UI elements with new vitals and trigger alerts
+            function updateUI(vitals) {
+                document.getElementById('heartValue').innerHTML = vitals.heart + ' <span>bpm</span>';
+                document.getElementById('spo2Value').innerHTML = vitals.spo2 + ' <span>%</span>';
+                document.getElementById('tempValue').innerHTML = vitals.temp + ' <span>°C</span>';
+                document.getElementById('roomTempValue').innerHTML = vitals.roomTemp + ' <span>°C</span>';
+                document.getElementById('humidityValue').innerHTML = vitals.humidity + ' <span>%</span>';
+                document.getElementById('positionValue').innerText = vitals.position;
+
+                // Update color-coded indicators based on thresholds
+                const heartInd = document.getElementById('heartIndicator');
+                if (vitals.heart > 100 || vitals.heart < 50) { heartInd.className = 'card-indicator indicator-danger'; heartInd.innerText = 'Critical'; }
+                else if (vitals.heart > 90 || vitals.heart < 60) { heartInd.className = 'card-indicator indicator-warning'; heartInd.innerText = 'Warning'; }
+                else { heartInd.className = 'card-indicator indicator-normal'; heartInd.innerText = 'Normal'; }
+
+                const spo2Ind = document.getElementById('spo2Indicator');
+                if (vitals.spo2 < 90) { spo2Ind.className = 'card-indicator indicator-danger'; spo2Ind.innerText = 'Critical'; }
+                else if (vitals.spo2 < 95) { spo2Ind.className = 'card-indicator indicator-warning'; spo2Ind.innerText = 'Warning'; }
+                else { spo2Ind.className = 'card-indicator indicator-normal'; spo2Ind.innerText = 'Normal'; }
+
+                const tempInd = document.getElementById('tempIndicator');
+                if (vitals.temp > 38.5 || vitals.temp < 35) { tempInd.className = 'card-indicator indicator-danger'; tempInd.innerText = 'Critical'; }
+                else if (vitals.temp > 37.5 || vitals.temp < 36) { tempInd.className = 'card-indicator indicator-warning'; tempInd.innerText = 'Warning'; }
+                else { tempInd.className = 'card-indicator indicator-normal'; tempInd.innerText = 'Normal'; }
+
+                const posInd = document.getElementById('positionIndicator');
+                if (vitals.position === 'fall') { posInd.className = 'card-indicator indicator-danger'; posInd.innerText = 'FALL'; }
+                else { posInd.className = 'card-indicator indicator-normal'; posInd.innerText = 'Normal'; }
+
+                updateCharts(vitals.heart, vitals.spo2, parseFloat(vitals.temp));
+
+                // Check for critical conditions and add alert
+                const alertsList = document.getElementById('alertsList');
+                if (vitals.heart > 100 || vitals.heart < 50 || vitals.spo2 < 90 || vitals.temp > 38.5 || vitals.temp < 35 || vitals.position === 'fall') {
+                    let msg = '';
+                    if (vitals.heart > 100) msg = 'Heart rate too high: ' + vitals.heart;
+                    else if (vitals.heart < 50) msg = 'Heart rate too low: ' + vitals.heart;
+                    else if (vitals.spo2 < 90) msg = 'Low SpO2: ' + vitals.spo2;
+                    else if (vitals.temp > 38.5) msg = 'High fever: ' + vitals.temp;
+                    else if (vitals.temp < 35) msg = 'Low temperature: ' + vitals.temp;
+                    else if (vitals.position === 'fall') msg = 'FALL DETECTED!';
+
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert-item';
+                    alertDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i><div class="alert-content"><div class="alert-title">${msg}</div><div class="alert-time">${new Date().toLocaleTimeString()}</div></div>`;
+                    alertsList.prepend(alertDiv);
+                    if (alertsList.children.length > 10) alertsList.removeChild(alertsList.lastChild);
+                    alertSound('danger');
+                }
+            }
+
+            // Start simulation with initial data
+            const vitals = generateRandomVitals();
+            updateUI(vitals);
+            mqttSimInterval = setInterval(() => {
+                const newVitals = generateRandomVitals();
+                updateUI(newVitals);
+            }, 5000);
+
+            // ==================== EXPORT BUTTON SIMULATION ====================
+            document.getElementById('exportBtn').addEventListener('click', () => {
+                alert('PDF Export - would generate report here. (Integration with jsPDF possible)');
+            });
+
+            // ==================== CLEANUP ON PAGE UNLOAD ====================
+            window.addEventListener('beforeunload', () => {
+                if (mqttSimInterval) clearInterval(mqttSimInterval);
+            });
+        })();
+    </script>
+
+    <!-- 
+        =========================================================================
+        FIREBASE NOTES (commented out)
+        -------------------------------------------------------------------------
+        To enable Firebase backend:
+        1. Uncomment the Firebase SDK scripts in the <head> section.
+        2. Ensure you have a js/firebase.js file with your Firebase config.
+        3. Modify the MQTT simulation to push data to Firebase or read from it.
+        4. Update the login flow (index.html) to authenticate and redirect.
+        Currently the app runs entirely on simulated data, no Firebase required.
+        =========================================================================
+    -->
+</body>
+</html>
