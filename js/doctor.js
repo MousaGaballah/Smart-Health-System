@@ -1,432 +1,592 @@
 // ====================================================
-// DOCTOR DASHBOARD - PROFESSIONAL VERSION
-// Handles patient selection, real-time updates, trends, predictions
+// DOCTOR DASHBOARD - PROFESSIONAL INTEGRATED VERSION
 // ====================================================
+(function() {
+    "use strict";
 
-let currentPatientId = 'p1';
-let patientsList = [];
-let mqttListeners = [];
-let healthHistory = {
-    heart: [],
-    spo2: [],
-    temp: []
-};
+    // ==================== GLOBAL VARIABLES ====================
+    let mqttSimInterval;                // Interval for simulated MQTT updates
+    let alertSoundEnabled = true;        // Sound toggle state
 
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('Doctor dashboard initializing...');
-    
-    // Load patients (from Firebase or mock)
-    loadPatientsList();
-    
-    // Setup patient selector
-    const patientSelect = document.getElementById('patientSelect');
-    if (patientSelect) {
-        patientSelect.addEventListener('change', (e) => {
-            currentPatientId = e.target.value;
-            loadPatientData(currentPatientId);
-            updatePatientSpecificCharts(currentPatientId);
+    // -------------------- Alert Sound using Web Audio API --------------------
+    const alertSound = (() => {
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            return (type = 'warning') => {
+                if (!alertSoundEnabled) return;                     // Do nothing if muted
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.frequency.value = type === 'danger' ? 800 : 400; // Higher pitch for danger
+                gain.gain.value = 0.2;                               // Volume
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.2);
+            };
+        } catch (e) {
+            // Fallback if Web Audio API is not supported
+            return () => {};
+        }
+    })();
+
+    // ==================== SIDEBAR COLLAPSE ====================
+    const sidebar = document.getElementById('sidebar');
+    const collapseBtn = document.getElementById('collapseSidebar');
+    collapseBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+        const icon = collapseBtn.querySelector('i');
+        if (sidebar.classList.contains('collapsed')) {
+            icon.classList.remove('fa-chevron-left');
+            icon.classList.add('fa-chevron-right');
+        } else {
+            icon.classList.remove('fa-chevron-right');
+            icon.classList.add('fa-chevron-left');
+        }
+    });
+
+    // ==================== SIDEBAR ACTIVE STATE & PAGE NAVIGATION ====================
+    const menuItems = document.querySelectorAll('.menu-item');
+    const pages = document.querySelectorAll('.page-section');
+
+    function showPage(pageId) {
+        pages.forEach(p => p.classList.remove('active'));
+        const activePage = document.getElementById(pageId + 'Page');
+        if (activePage) activePage.classList.add('active');
+    }
+
+    menuItems.forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            menuItems.forEach(i => i.classList.remove('active'));
+            this.classList.add('active');
+            const page = this.dataset.page;
+            showPage(page);
+        });
+    });
+
+    // ==================== NOTIFICATION SYSTEM ====================
+    function showNotification(msg, type = 'info') {
+        const notif = document.createElement('div');
+        notif.className = 'notification';
+        notif.innerText = msg;
+        document.body.appendChild(notif);
+        setTimeout(() => notif.remove(), 2000);
+    }
+
+    // ==================== MUTE ALERTS BUTTON ====================
+    const muteBtn = document.getElementById('muteAlerts');
+    muteBtn.addEventListener('click', () => {
+        alertSoundEnabled = !alertSoundEnabled;
+        muteBtn.innerHTML = alertSoundEnabled ? '<i class="fas fa-volume-up"></i> Mute' : '<i class="fas fa-volume-mute"></i> Unmute';
+        muteBtn.classList.toggle('muted', !alertSoundEnabled);
+        showNotification(alertSoundEnabled ? 'Alerts unmuted' : 'Alerts muted');
+    });
+
+    // ==================== STATS UPDATE (simulated + animated) ====================
+    function animateValue(element, start, end, duration) {
+        let startTimestamp = null;
+        const step = (timestamp) => {
+            if (!startTimestamp) startTimestamp = timestamp;
+            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+            element.innerText = Math.floor(progress * (end - start) + start);
+            if (progress < 1) {
+                window.requestAnimationFrame(step);
+            }
+        };
+        window.requestAnimationFrame(step);
+    }
+
+    function updateStats() {
+        const newPatients = Math.floor(Math.random() * 50 + 200);
+        const newCritical = Math.floor(Math.random() * 10 + 5);
+        const newAvgHR = Math.floor(Math.random() * 20 + 65);
+        const newOccupancy = Math.floor(Math.random() * 15 + 75) + '%';
+
+        animateValue(document.getElementById('totalPatients'), parseInt(document.getElementById('totalPatients').innerText), newPatients, 1000);
+        animateValue(document.getElementById('criticalCases'), parseInt(document.getElementById('criticalCases').innerText), newCritical, 1000);
+        document.getElementById('avgHR').innerHTML = newAvgHR + ' <span style="font-size:1rem;">bpm</span>';
+        document.getElementById('bedOccupancy').innerHTML = newOccupancy + '<small style="font-size:1rem;">%</small>';
+    }
+    setInterval(updateStats, 10000);
+
+    // ==================== REAL-TIME CHARTS (Chart.js) ====================
+    const heartCtx = document.getElementById('heartChart')?.getContext('2d');
+    const spo2Ctx = document.getElementById('spo2Chart')?.getContext('2d');
+    const tempCtx = document.getElementById('tempChart')?.getContext('2d');
+
+    let heartChart, spo2Chart, tempChart;
+    const heartHistory = [], spo2History = [], tempHistory = [], timeLabels = [];
+
+    if (heartCtx) {
+        heartChart = new Chart(heartCtx, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Heart Rate', data: [], borderColor: '#2563eb', backgroundColor: '#2563eb20', tension: 0.3, fill: true }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 40, max: 120 } }, plugins: { legend: { display: false } } }
         });
     }
+    if (spo2Ctx) {
+        spo2Chart = new Chart(spo2Ctx, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'SpO2', data: [], borderColor: '#10b981', backgroundColor: '#10b98120', tension: 0.3, fill: true }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 85, max: 100 } }, plugins: { legend: { display: false } } }
+        });
+    }
+    if (tempCtx) {
+        tempChart = new Chart(tempCtx, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Temp', data: [], borderColor: '#f59e0b', backgroundColor: '#f59e0b20', tension: 0.3, fill: true }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 35, max: 39 } }, plugins: { legend: { display: false } } }
+        });
+    }
+
+    // Function to update real-time charts with new data
+    function updateCharts(heart, spo2, temp) {
+        const now = new Date().toLocaleTimeString();
+        if (heart) { heartHistory.push(heart); if (heartHistory.length > 20) heartHistory.shift(); }
+        if (spo2) { spo2History.push(spo2); if (spo2History.length > 20) spo2History.shift(); }
+        if (temp) { tempHistory.push(temp); if (tempHistory.length > 20) tempHistory.shift(); }
+        timeLabels.push(now);
+        if (timeLabels.length > 20) timeLabels.shift();
+
+        if (heartChart) { heartChart.data.labels = timeLabels; heartChart.data.datasets[0].data = heartHistory; heartChart.update(); }
+        if (spo2Chart) { spo2Chart.data.labels = timeLabels; spo2Chart.data.datasets[0].data = spo2History; spo2Chart.update(); }
+        if (tempChart) { tempChart.data.labels = timeLabels; tempChart.data.datasets[0].data = tempHistory; tempChart.update(); }
+    }
+
+    // ==================== HISTORICAL CHARTS (ApexCharts) ====================
+    const heartHistoryChart = new ApexCharts(document.querySelector("#heartHistoryChart"), {
+        chart: { type: 'area', height: 250, animations: { enabled: true, speed: 500 } },
+        series: [{ name: 'Heart Rate', data: [72,75,71,73,74,72,70,73,75,74,73,72] }],
+        xaxis: { categories: ['00','02','04','06','08','10','12','14','16','18','20','22'] },
+        colors: ['#2563eb'],
+        fill: { type: 'gradient' }
+    });
+    heartHistoryChart.render();
+
+    const spo2HistoryChart = new ApexCharts(document.querySelector("#spo2HistoryChart"), {
+        chart: { type: 'area', height: 250, animations: { enabled: true, speed: 500 } },
+        series: [{ name: 'SpO₂', data: [98,97,98,99,98,97,98,98,97,98,99,98] }],
+        xaxis: { categories: ['00','02','04','06','08','10','12','14','16','18','20','22'] },
+        colors: ['#10b981'],
+        fill: { type: 'gradient' }
+    });
+    spo2HistoryChart.render();
+
+    // Monthly report chart (for reports page)
+const reportForm = document.getElementById('patientReportForm');
+
+reportForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    // Gather form data
+    const reportData = {
+        name: document.getElementById('patientName').value,
+        age: document.getElementById('patientAge').value,
+        gender: document.getElementById('patientGender').value,
+        condition: document.getElementById('healthCondition').value,
+        medications: document.getElementById('medications').value,
+        notes: document.getElementById('additionalNotes').value
+    };
+
+    //Create PDF using jsPDF
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    doc.setFontSize(16);
+    doc.text("Patient Report", 105, 20, { align: "center" });
+
+    doc.setFontSize(12);
+    doc.text(`Name: ${reportData.name}`, 20, 40);
+    doc.text(`Age: ${reportData.age}`, 20, 50);
+    doc.text(`Gender: ${reportData.gender}`, 20, 60);
     
-    // Subscribe to MQTT
-    subscribeToPatientData();
-    
-    // Load recent alerts
-    loadRecentAlerts();
-    
-    // Enable drag & drop for cards (widgets)
-    enableDragAndDrop();
-    
-    // Export buttons
-    document.getElementById('exportDataBtn')?.addEventListener('click', exportPatientData);
+    doc.text("Health Condition:", 20, 70);
+    doc.text(reportData.condition, 25, 80, { maxWidth: 160 });
+
+    doc.text("Medications:", 20, 100);
+    doc.text(reportData.medications, 25, 110, { maxWidth: 160 });
+
+    doc.text("Additional Notes:", 20, 130);
+    doc.text(reportData.notes, 25, 140, { maxWidth: 160 });
+
+    // Save the PDF with patient's name
+    doc.save(`${reportData.name}_report.pdf`);
+
+    // Reset form and show success message
+    reportForm.reset();
+    alert("Report saved as PDF successfully!");
+});
+    // ==================== SIMULATED MQTT UPDATES ====================
+    // Generates random realistic vital signs
+    function generateRandomVitals() {
+        return {
+            heart: Math.floor(Math.random() * (85-65+1)) + 65,
+            spo2: Math.floor(Math.random() * (99-94+1)) + 94,
+            temp: (Math.random() * (37.5-36.0) + 36.0).toFixed(1),
+            roomTemp: Math.floor(Math.random() * (25-22+1)) + 22,
+            humidity: Math.floor(Math.random() * (60-40+1)) + 40,
+            position: ['sitting', 'standing', 'lying', 'walking'][Math.floor(Math.random() * 4)]
+        };
+    }
+
+    // Update UI elements with new vitals and trigger alerts
+    function updateUI(vitals) {
+        document.getElementById('heartValue').innerHTML = vitals.heart + ' <span>bpm</span>';
+        document.getElementById('spo2Value').innerHTML = vitals.spo2 + ' <span>%</span>';
+        document.getElementById('tempValue').innerHTML = vitals.temp + ' <span>°C</span>';
+        document.getElementById('roomTempValue').innerHTML = vitals.roomTemp + ' <span>°C</span>';
+        document.getElementById('humidityValue').innerHTML = vitals.humidity + ' <span>%</span>';
+        document.getElementById('positionValue').innerText = vitals.position;
+
+        // Update color-coded indicators based on thresholds
+        const heartInd = document.getElementById('heartIndicator');
+        if (vitals.heart > 100 || vitals.heart < 50) { heartInd.className = 'card-indicator indicator-danger'; heartInd.innerText = 'Critical'; }
+        else if (vitals.heart > 90 || vitals.heart < 60) { heartInd.className = 'card-indicator indicator-warning'; heartInd.innerText = 'Warning'; }
+        else { heartInd.className = 'card-indicator indicator-normal'; heartInd.innerText = 'Normal'; }
+
+        const spo2Ind = document.getElementById('spo2Indicator');
+        if (vitals.spo2 < 90) { spo2Ind.className = 'card-indicator indicator-danger'; spo2Ind.innerText = 'Critical'; }
+        else if (vitals.spo2 < 95) { spo2Ind.className = 'card-indicator indicator-warning'; spo2Ind.innerText = 'Warning'; }
+        else { spo2Ind.className = 'card-indicator indicator-normal'; spo2Ind.innerText = 'Normal'; }
+
+        const tempInd = document.getElementById('tempIndicator');
+        if (vitals.temp > 38.5 || vitals.temp < 35) { tempInd.className = 'card-indicator indicator-danger'; tempInd.innerText = 'Critical'; }
+        else if (vitals.temp > 37.5 || vitals.temp < 36) { tempInd.className = 'card-indicator indicator-warning'; tempInd.innerText = 'Warning'; }
+        else { tempInd.className = 'card-indicator indicator-normal'; tempInd.innerText = 'Normal'; }
+
+        const posInd = document.getElementById('positionIndicator');
+        if (vitals.position === 'fall') { posInd.className = 'card-indicator indicator-danger'; posInd.innerText = 'FALL'; }
+        else { posInd.className = 'card-indicator indicator-normal'; posInd.innerText = 'Normal'; }
+
+        updateCharts(vitals.heart, vitals.spo2, parseFloat(vitals.temp));
+
+        // Check for critical conditions and add alert
+        const alertsList = document.getElementById('alertsList');
+        if (vitals.heart > 100 || vitals.heart < 50 || vitals.spo2 < 90 || vitals.temp > 38.5 || vitals.temp < 35 || vitals.position === 'fall') {
+            let msg = '';
+            if (vitals.heart > 100) msg = 'Heart rate too high: ' + vitals.heart;
+            else if (vitals.heart < 50) msg = 'Heart rate too low: ' + vitals.heart;
+            else if (vitals.spo2 < 90) msg = 'Low SpO2: ' + vitals.spo2;
+            else if (vitals.temp > 38.5) msg = 'High fever: ' + vitals.temp;
+            else if (vitals.temp < 35) msg = 'Low temperature: ' + vitals.temp;
+            else if (vitals.position === 'fall') msg = 'FALL DETECTED!';
+
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert-item';
+            alertDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i><div class="alert-content"><div class="alert-title">${msg}</div><div class="alert-time">${new Date().toLocaleTimeString()}</div></div>`;
+            alertsList.prepend(alertDiv);
+            if (alertsList.children.length > 10) alertsList.removeChild(alertsList.lastChild);
+            alertSound('danger');
+        }
+    }
+
+    // Start simulation with initial data
+    const vitals = generateRandomVitals();
+    updateUI(vitals);
+    mqttSimInterval = setInterval(() => {
+        const newVitals = generateRandomVitals();
+        updateUI(newVitals);
+    }, 5000);
+
+    // ==================== SEARCH FUNCTIONALITY ====================
+    document.getElementById('globalSearch')?.addEventListener('input', function() {
+        const value = this.value.toLowerCase();
+        document.querySelectorAll('#recentPatientsTable tbody tr').forEach(row => {
+            row.style.display = row.innerText.toLowerCase().includes(value) ? '' : 'none';
+        });
+    });
+
+    document.getElementById('patientSearch')?.addEventListener('input', function() {
+        const value = this.value.toLowerCase();
+        document.querySelectorAll('#patientsFullTable tbody tr').forEach(row => {
+            row.style.display = row.innerText.toLowerCase().includes(value) ? '' : 'none';
+        });
+    });
+
+    document.getElementById('appointmentSearch')?.addEventListener('input', function() {
+        const value = this.value.toLowerCase();
+        document.querySelectorAll('#appointmentsTable tbody tr').forEach(row => {
+            row.style.display = row.innerText.toLowerCase().includes(value) ? '' : 'none';
+        });
+    });
+
+    // ==================== FILTER & DATE RANGE FUNCTIONALITY ====================
+    const filterBtn = document.getElementById('filterBtn');
+    const filterDropdown = document.getElementById('filterDropdown');
+    const closeFilter = document.getElementById('closeFilter');
+    const dateBadge = document.querySelector('.date-badge');
+    const dateDropdown = document.getElementById('dateDropdown');
+    const dateSpan = dateBadge.querySelector('span');
+    const filterStatus = document.getElementById('filterStatus');
+    const filterCondition = document.getElementById('filterCondition');
+    const filterStartDate = document.getElementById('filterStartDate');
+    const filterEndDate = document.getElementById('filterEndDate');
+    const applyFilter = document.getElementById('applyFilter');
+    const resetFilter = document.getElementById('resetFilter');
+
+    // Toggle filter dropdown
+    filterBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        filterDropdown.classList.toggle('active');
+        dateDropdown.classList.remove('active'); // Hide date dropdown if open
+    });
+
+    // Close filter dropdown
+    closeFilter.addEventListener('click', () => {
+        filterDropdown.classList.remove('active');
+    });
+
+    // Toggle date dropdown
+    dateBadge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dateDropdown.classList.toggle('active');
+        filterDropdown.classList.remove('active'); // Hide filter dropdown if open
+    });
+
+    // Click outside to close dropdowns
+    document.addEventListener('click', (e) => {
+        if (!filterDropdown.contains(e.target) && !filterBtn.contains(e.target)) {
+            filterDropdown.classList.remove('active');
+        }
+        if (!dateDropdown.contains(e.target) && !dateBadge.contains(e.target)) {
+            dateDropdown.classList.remove('active');
+        }
+    });
+
+    // Date range selection
+    document.querySelectorAll('.date-dropdown li').forEach(item => {
+        item.addEventListener('click', function() {
+            document.querySelectorAll('.date-dropdown li').forEach(li => li.classList.remove('active'));
+            this.classList.add('active');
+            const range = this.dataset.range;
+            if (range === 'custom') {
+                dateSpan.innerText = 'Custom range';
+            } else {
+                dateSpan.innerText = `Last ${range} days`;
+            }
+            applyDateFilter(range);
+            dateDropdown.classList.remove('active');
+        });
+    });
+
+    // Apply filter button
+    applyFilter.addEventListener('click', () => {
+        const status = filterStatus.value;
+        const condition = filterCondition.value;
+        const startDate = filterStartDate.value;
+        const endDate = filterEndDate.value;
+
+        filterTables(status, condition, startDate, endDate);
+        filterDropdown.classList.remove('active');
+    });
+
+    // Reset filter button
+    resetFilter.addEventListener('click', () => {
+        filterStatus.value = 'all';
+        filterCondition.value = 'all';
+        filterStartDate.value = '';
+        filterEndDate.value = '';
+        resetTableFilters();
+        filterDropdown.classList.remove('active');
+    });
+    // function applyDateFilter(range) {
+    //     showNotification(`Date range changed to ${dateSpan.innerText}`);
+    //     // يمكن إضافة منطق لتصفية الجداول حسب التاريخ هنا
+    // }
+    function filterTables(status, condition, startDate, endDate) {
+        const recentRows = document.querySelectorAll('#recentPatientsTable tbody tr');
+        const patientRows = document.querySelectorAll('#patientsFullTable tbody tr');
+        const appointmentRows = document.querySelectorAll('#appointmentsTable tbody tr');
+
+        recentRows.forEach(row => {
+            let show = true;
+            const rowStatus = row.querySelector('td:last-child span').innerText.toLowerCase();
+            const rowCondition = row.querySelector('td:nth-child(3)').innerText.toLowerCase();
+            if (status !== 'all' && !rowStatus.includes(status)) show = false;
+            if (condition !== 'all' && !rowCondition.includes(condition)) show = false;
+            row.style.display = show ? '' : 'none';
+        });
+
+        patientRows.forEach(row => {
+            let show = true;
+            const rowStatus = row.querySelector('td:last-child span').innerText.toLowerCase();
+            const rowCondition = row.querySelector('td:nth-child(3)').innerText.toLowerCase();
+            if (status !== 'all' && !rowStatus.includes(status)) show = false;
+            if (condition !== 'all' && !rowCondition.includes(condition)) show = false;
+            row.style.display = show ? '' : 'none';
+        });
+
+        appointmentRows.forEach(row => {
+            let show = true;
+            const rowStatus = row.querySelector('td:last-child span').innerText.toLowerCase();
+            if (status !== 'all' && !rowStatus.includes(status)) show = false;
+            row.style.display = show ? '' : 'none';
+        });
+
+        showNotification('Filters applied');
+    }
+
+    function resetTableFilters() {
+        const allRows = document.querySelectorAll('#recentPatientsTable tbody tr, #patientsFullTable tbody tr, #appointmentsTable tbody tr');
+        allRows.forEach(row => row.style.display = '');
+        showNotification('Filters reset');
+    }
+// ==================== EXPORT BUTTON - GENERATE PDF FROM RECENT PATIENTS TABLE ====================
+document.getElementById('exportBtn').addEventListener('click', function() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    // عنوان التقرير
+    doc.setFontSize(18);
+    doc.text("Recent Patients Report", 14, 22);
+
+    // الحصول على بيانات الجدول
+    const table = document.getElementById('recentPatientsTable');
+    const headers = [];
+    const rows = [];
+
+    // استخراج رؤوس الأعمدة (th)
+    const headerCells = table.querySelectorAll('thead th');
+    headerCells.forEach(cell => headers.push(cell.innerText));
+
+    // استخراج صفوف البيانات (td)
+    const bodyRows = table.querySelectorAll('tbody tr');
+    bodyRows.forEach(row => {
+        const rowData = [];
+        row.querySelectorAll('td').forEach(cell => {
+            // نأخذ النص مع تجاهل أي عناصر داخلية (مثل span)
+            rowData.push(cell.innerText.trim());
+        });
+        rows.push(rowData);
+    });
+
+    // إنشاء الجدول في PDF باستخدام autoTable
+    doc.autoTable({
+        head: [headers],
+        body: rows,
+        startY: 30,
+        theme: 'striped',
+        headStyles: { fillColor: [37, 99, 235] }, // لون أزرق
+        styles: { fontSize: 10 }
+    });
+
+    // حفظ الملف
+    doc.save('recent_patients_report.pdf');
+
+    // إشعار للمستخدم
+    showNotification('PDF exported successfully!');
 });
 
-// ---------- Load Patients List ----------
-function loadPatientsList() {
-    if (firebase.apps.length) {
-        firebase.database().ref('users').orderByChild('role').equalTo('patient').once('value')
-            .then((snapshot) => {
-                const patients = [];
-                snapshot.forEach((child) => {
-                    patients.push({
-                        id: child.key,
-                        name: child.val().name || 'Unknown',
-                        email: child.val().email
-                    });
-                });
-                if (patients.length > 0) {
-                    patientsList = patients;
-                    populatePatientSelect(patients);
-                    currentPatientId = patients[0].id;
-                    document.getElementById('patientSelect').value = currentPatientId;
-                    loadPatientData(currentPatientId);
-                } else {
-                    useMockPatients();
+    // ==================== EXPORT PATIENT HEALTH BUTTON (All Vitals & Charts) ====================
+    // المعرف الصحيح للزر هو "export-btn-Patient-Health" كما هو موجود في HTML
+    document.getElementById('export-btn-Patient-Health')?.addEventListener('click', function() {
+        showNotification('Generating patient health report...');
+        
+        // نستخدم setTimeout للسماح بإظهار الإشعار قبل بدء العملية
+        setTimeout(() => {
+            try {
+                // التحقق من وجود jsPDF
+                if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') {
+                    showNotification('PDF library not loaded!', 'error');
+                    return;
                 }
-            })
-            .catch((error) => {
-                console.warn('Firebase error, using mock patients:', error);
-                useMockPatients();
-            });
-    } else {
-        useMockPatients();
-    }
-}
-
-function useMockPatients() {
-    patientsList = [
-        { id: 'p1', name: 'John Doe' },
-        { id: 'p2', name: 'Jane Smith' },
-        { id: 'p3', name: 'Robert Johnson' }
-    ];
-    populatePatientSelect(patientsList);
-    currentPatientId = patientsList[0].id;
-    document.getElementById('patientSelect').value = currentPatientId;
-    loadPatientData(currentPatientId);
-}
-
-function populatePatientSelect(patients) {
-    const select = document.getElementById('patientSelect');
-    if (!select) return;
-    select.innerHTML = '';
-    patients.forEach(p => {
-        const option = document.createElement('option');
-        option.value = p.id;
-        option.textContent = p.name;
-        select.appendChild(option);
-    });
-}
-
-// ---------- Load Patient Data ----------
-function loadPatientData(patientId) {
-    console.log('Loading data for patient:', patientId);
-    showLoadingState(true);
-    
-    setTimeout(() => {
-        // Mock data for different patients
-        if (patientId === 'p1') {
-            updateVitalsFromPatient({
-                heart_rate: 72,
-                spo2: 98,
-                body_temp: 36.6,
-                room_temp: 23,
-                humidity: 50,
-                position: 'sitting'
-            });
-        } else if (patientId === 'p2') {
-            updateVitalsFromPatient({
-                heart_rate: 85,
-                spo2: 96,
-                body_temp: 37.1,
-                room_temp: 24,
-                humidity: 55,
-                position: 'lying'
-            });
-        } else {
-            updateVitalsFromPatient({
-                heart_rate: 65,
-                spo2: 99,
-                body_temp: 36.4,
-                room_temp: 22,
-                humidity: 48,
-                position: 'walking'
-            });
-        }
-        showLoadingState(false);
-    }, 500);
-}
-
-function showLoadingState(loading) {
-    const container = document.getElementById('doctorVitals');
-    if (container) {
-        container.style.opacity = loading ? '0.5' : '1';
-    }
-}
-
-// Update UI from data object
-function updateVitalsFromPatient(data) {
-    if (data.heart_rate !== undefined) {
-        document.getElementById('heartValue') && (document.getElementById('heartValue').innerHTML = data.heart_rate + ' <span>bpm</span>');
-        updateHeartIndicator(data.heart_rate);
-        addToHistory('heart', data.heart_rate);
-    }
-    if (data.spo2 !== undefined) {
-        document.getElementById('spo2Value') && (document.getElementById('spo2Value').innerHTML = data.spo2 + ' <span>%</span>');
-        updateSpo2Indicator(data.spo2);
-        addToHistory('spo2', data.spo2);
-    }
-    if (data.body_temp !== undefined) {
-        document.getElementById('tempValue') && (document.getElementById('tempValue').innerHTML = data.body_temp + ' <span>°C</span>');
-        updateTempIndicator(data.body_temp);
-        addToHistory('temp', data.body_temp);
-    }
-    if (data.room_temp !== undefined) {
-        document.getElementById('roomTempValue') && (document.getElementById('roomTempValue').innerHTML = data.room_temp + ' <span>°C</span>');
-    }
-    if (data.humidity !== undefined) {
-        document.getElementById('humidityValue') && (document.getElementById('humidityValue').innerHTML = data.humidity + ' <span>%</span>');
-    }
-    if (data.position !== undefined) {
-        document.getElementById('positionValue') && (document.getElementById('positionValue').innerText = data.position);
-        updatePositionIndicator(data.position);
-    }
-    
-    // Update trend predictions
-    updatePredictions();
-}
-
-// History management
-function addToHistory(param, value) {
-    if (!healthHistory[param]) healthHistory[param] = [];
-    healthHistory[param].push({ value, time: Date.now() });
-    if (healthHistory[param].length > 60) healthHistory[param].shift(); // keep last 60 readings
-    
-    // Update mini trend chart if exists
-    updateMiniTrend(param);
-}
-
-function updateMiniTrend(param) {
-    // This could draw a small sparkline using canvas; for brevity, we rely on ApexCharts for history charts.
-}
-
-// Prediction (simple moving average)
-function predictNext(param) {
-    const history = healthHistory[param];
-    if (!history || history.length < 5) return null;
-    const recent = history.slice(-5).map(p => p.value);
-    const avg = recent.reduce((a,b) => a + b, 0) / recent.length;
-    const trend = recent[recent.length-1] - recent[0];
-    return avg + (trend / 5); // crude prediction
-}
-
-function updatePredictions() {
-    const heartPred = predictNext('heart');
-    const spo2Pred = predictNext('spo2');
-    const tempPred = predictNext('temp');
-    
-    // Display predictions somewhere, e.g., in a small tooltip or extra element
-    const predEl = document.getElementById('predictions');
-    if (predEl) {
-        predEl.innerHTML = `
-            <div>Heart next: ${heartPred ? heartPred.toFixed(0) : '--'} bpm</div>
-            <div>SpO2 next: ${spo2Pred ? spo2Pred.toFixed(0) : '--'} %</div>
-            <div>Temp next: ${tempPred ? tempPred.toFixed(1) : '--'} °C</div>
-        `;
-    }
-}
-
-// Indicators
-function updateHeartIndicator(value) {
-    const el = document.getElementById('heartIndicator');
-    if (!el) return;
-    if (value > 100 || value < 50) {
-        el.className = 'card-indicator indicator-danger';
-        el.innerText = 'Critical';
-    } else if (value > 90 || value < 60) {
-        el.className = 'card-indicator indicator-warning';
-        el.innerText = 'Warning';
-    } else {
-        el.className = 'card-indicator indicator-normal';
-        el.innerText = 'Normal';
-    }
-}
-
-function updateSpo2Indicator(value) {
-    const el = document.getElementById('spo2Indicator');
-    if (!el) return;
-    if (value < 90) {
-        el.className = 'card-indicator indicator-danger';
-        el.innerText = 'Critical';
-    } else if (value < 95) {
-        el.className = 'card-indicator indicator-warning';
-        el.innerText = 'Warning';
-    } else {
-        el.className = 'card-indicator indicator-normal';
-        el.innerText = 'Normal';
-    }
-}
-
-function updateTempIndicator(value) {
-    const el = document.getElementById('tempIndicator');
-    if (!el) return;
-    if (value > 38.5 || value < 35.0) {
-        el.className = 'card-indicator indicator-danger';
-        el.innerText = 'Critical';
-    } else if (value > 37.5 || value < 36.0) {
-        el.className = 'card-indicator indicator-warning';
-        el.innerText = 'Warning';
-    } else {
-        el.className = 'card-indicator indicator-normal';
-        el.innerText = 'Normal';
-    }
-}
-
-function updatePositionIndicator(pos) {
-    const el = document.getElementById('positionIndicator');
-    if (!el) return;
-    if (pos === 'fall') {
-        el.className = 'card-indicator indicator-danger';
-        el.innerText = 'FALL!';
-    } else {
-        el.className = 'card-indicator indicator-normal';
-        el.innerText = 'Normal';
-    }
-}
-
-// ---------- MQTT Subscription ----------
-function subscribeToPatientData() {
-    if (!window.mqttClient) {
-        // Simulate MQTT updates every 3 seconds
-        setInterval(() => {
-            if (currentPatientId) {
-                const currentHeart = parseInt(document.getElementById('heartValue')?.innerText) || 70;
-                const newHeart = currentHeart + Math.floor(Math.random() * 5) - 2;
-                const newSpo2 = Math.min(100, Math.max(90, (parseInt(document.getElementById('spo2Value')?.innerText) || 97) + Math.floor(Math.random() * 3) - 1));
-                const newTemp = (parseFloat(document.getElementById('tempValue')?.innerText) || 36.6) + (Math.random() * 0.4 - 0.2);
                 
-                updateVitalsFromPatient({
-                    heart_rate: newHeart,
-                    spo2: newSpo2,
-                    body_temp: Math.round(newTemp * 10) / 10,
-                    position: Math.random() < 0.1 ? ['sitting','standing','lying','walking','fall'][Math.floor(Math.random()*5)] : undefined
-                });
-            }
-        }, 3000);
-        return;
-    }
-    
-    // Unsubscribe previous
-    mqttListeners.forEach(unsub => unsub());
-    mqttListeners = [];
-    
-    const topics = ['health/patient/heartrate','health/patient/spo2','health/patient/bodytemp','health/room/temp','health/room/humidity','health/patient/position'];
-    topics.forEach(topic => {
-        const unsub = window.mqttClient.subscribe(topic, (value) => {
-            if (currentPatientId === 'p1') { // demo: only update for default patient
-                const update = {};
-                switch(topic) {
-                    case 'health/patient/heartrate': update.heart_rate = value; break;
-                    case 'health/patient/spo2': update.spo2 = value; break;
-                    case 'health/patient/bodytemp': update.body_temp = value; break;
-                    case 'health/room/temp': update.room_temp = value; break;
-                    case 'health/room/humidity': update.humidity = value; break;
-                    case 'health/patient/position': update.position = value; break;
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                // عنوان التقرير
+                doc.setFontSize(20);
+                doc.text("Patient Health Report", 105, 15, { align: "center" });
+                
+                // تاريخ التقرير
+                doc.setFontSize(10);
+                doc.text(`Generated: ${new Date().toLocaleString()}`, 105, 22, { align: "center" });
+                
+                let yOffset = 30;
+                
+                // دالة مساعدة لإضافة صورة canvas مع معالجة الأخطاء
+                function addChartImage(canvasId, title, yPos) {
+                    const canvas = document.getElementById(canvasId);
+                    if (!canvas) {
+                        console.warn(`Canvas with id "${canvasId}" not found`);
+                        return yPos;
+                    }
+                    try {
+                        const imgData = canvas.toDataURL('image/png');
+                        doc.setFontSize(12);
+                        doc.text(title, 14, yPos);
+                        doc.addImage(imgData, 'PNG', 14, yPos + 5, 180, 60);
+                        return yPos + 70;
+                    } catch (e) {
+                        console.error('Could not add chart:', canvasId, e);
+                        doc.text(`[${title} chart unavailable]`, 14, yPos + 10);
+                        return yPos + 15;
+                    }
                 }
-                updateVitalsFromPatient(update);
+                
+                // إضافة الرسوم البيانية الثلاثة (Charts)
+                yOffset = addChartImage('heartChart', 'Heart Rate (bpm)', yOffset);
+                yOffset = addChartImage('spo2Chart', 'SpO₂ (%)', yOffset);
+                yOffset = addChartImage('tempChart', 'Body Temperature (°C)', yOffset);
+                
+                // إضافة القيم الرقمية الحالية (Room Temp, Humidity, Position)
+                doc.setFontSize(14);
+                doc.text("Current Vitals:", 14, yOffset);
+                yOffset += 8;
+                
+                const roomTemp = document.getElementById('roomTempValue')?.innerText || '--';
+                const humidity = document.getElementById('humidityValue')?.innerText || '--';
+                const position = document.getElementById('positionValue')?.innerText || '--';
+                const positionIndicator = document.getElementById('positionIndicator')?.innerText || '';
+                
+                doc.setFontSize(11);
+                doc.text(`• Room Temperature: ${roomTemp}`, 20, yOffset);
+                yOffset += 6;
+                doc.text(`• Humidity: ${humidity}`, 20, yOffset);
+                yOffset += 6;
+                doc.text(`• Position: ${position} (${positionIndicator})`, 20, yOffset);
+                
+                // حفظ الملف
+                doc.save("patient_health_report.pdf");
+                showNotification('Health report ready!');
+            } catch (error) {
+                console.error('PDF generation error:', error);
+                showNotification('Failed to generate PDF', 'error');
             }
-        });
-        mqttListeners.push(unsub);
+        }, 100);
     });
-}
 
-// ---------- Alerts ----------
-function loadRecentAlerts() {
-    const alertsList = document.getElementById('alertsList');
-    if (!alertsList) return;
-    
-    // Mock alerts
-    const mockAlerts = [
-        { message: 'Heart rate elevated (102 bpm)', time: new Date(Date.now() - 2*60000), level: 'danger' },
-        { message: 'SpO2 dropped to 91%', time: new Date(Date.now() - 15*60000), level: 'warning' },
-        { message: 'Fall detected!', time: new Date(Date.now() - 35*60000), level: 'danger' }
-    ];
-    
-    mockAlerts.forEach(alert => addAlertToList(alert));
-    
-    // Subscribe to new alerts from MQTT
-    window.mqttClient?.subscribe('alert', (alert) => {
-        addAlertToList(alert);
-        if (alert.level === 'danger') playAlertSound();
+    // ==================== SETTINGS SAVE ====================
+    document.getElementById('saveSettings')?.addEventListener('click', () => {
+        const email = document.getElementById('settingsEmail').value;
+        const lang = document.getElementById('settingsLanguage').value;
+        showNotification(`Settings saved: Email ${email}, Language ${lang}`);
     });
-}
 
-function addAlertToList(alert) {
-    const alertsList = document.getElementById('alertsList');
-    if (!alertsList) return;
-    
-    const div = document.createElement('div');
-    div.className = `alert-item ${alert.level === 'danger' ? '' : (alert.level === 'warning' ? 'warning' : 'low')}`;
-    div.innerHTML = `
-        <i class="fas fa-exclamation-circle"></i>
-        <div class="alert-content">
-            <div class="alert-title">${alert.message}</div>
-            <div class="alert-time">${new Date(alert.time || Date.now()).toLocaleTimeString()}</div>
-        </div>
-        <button class="alert-dismiss" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>
-    `;
-    alertsList.prepend(div);
-    if (alertsList.children.length > 10) alertsList.removeChild(alertsList.lastChild);
-}
+    // ==================== LOGOUT BUTTON ====================
+    const footer = document.querySelector('.sidebar-footer');
+    const logoutBtn = document.createElement('a');
+    logoutBtn.href = 'javascript:void(0)';
+    logoutBtn.className = 'menu-item';
+    logoutBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i><span>Logout</span>';
+    logoutBtn.addEventListener('click', () => {
+        if (confirm('Logout?')) window.location.href = 'index.html';
+    });
+    footer.appendChild(logoutBtn);
 
-function playAlertSound() {
-    try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-        oscillator.frequency.value = 800;
-        gainNode.gain.value = 0.3;
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.3);
-    } catch (e) {}
-}
+    // ==================== CLEANUP ON PAGE UNLOAD ====================
+    window.addEventListener('beforeunload', () => {
+        if (mqttSimInterval) clearInterval(mqttSimInterval);
+    });
 
-// ---------- Export Data ----------
-function exportPatientData() {
-    const data = {
-        patient: patientsList.find(p => p.id === currentPatientId)?.name || 'Unknown',
-        heart_rate: document.getElementById('heartValue')?.innerText,
-        spo2: document.getElementById('spo2Value')?.innerText,
-        temperature: document.getElementById('tempValue')?.innerText,
-        history: healthHistory
+    // Override showPage to close dropdowns when changing page
+    const originalShowPage = showPage;
+    showPage = function(pageId) {
+        originalShowPage(pageId);
+        if (filterDropdown) filterDropdown.classList.remove('active');
+        if (dateDropdown) dateDropdown.classList.remove('active');
     };
-    
-    const csv = 'Parameter,Value\n' +
-        `Heart Rate,${data.heart_rate}\n` +
-        `SpO2,${data.spo2}\n` +
-        `Temperature,${data.temperature}\n`;
-    
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `patient_${currentPatientId}_data.csv`;
-    a.click();
-}
 
-// ---------- Drag & Drop Widgets ----------
-function enableDragAndDrop() {
-    const cards = document.querySelectorAll('.card');
-    const container = document.querySelector('.cards-grid');
-    
-    cards.forEach(card => {
-        card.setAttribute('draggable', 'true');
-        card.addEventListener('dragstart', (e) => {
-            e.dataTransfer.setData('text/plain', e.target.id);
-            card.classList.add('dragging');
-        });
-        card.addEventListener('dragend', () => {
-            card.classList.remove('dragging');
-        });
-    });
-    
-    container.addEventListener('dragover', (e) => e.preventDefault());
-    container.addEventListener('drop', (e) => {
-        e.preventDefault();
-        const id = e.dataTransfer.getData('text/plain');
-        const draggedElement = document.getElementById(id);
-        if (draggedElement && e.target.closest('.card')) {
-            const targetCard = e.target.closest('.card');
-            container.insertBefore(draggedElement, targetCard.nextSibling);
-        }
-    });
-}
-
-// ---------- Patient Specific Charts ----------
-function updatePatientSpecificCharts(patientId) {
-    // For demo, just update history charts with mock data
-    if (window.updateHistoryCharts) {
-        window.updateHistoryCharts(patientId);
-    }
-}
+    // ==================== INITIAL PAGE ====================
+    showPage('dashboard');
+})();

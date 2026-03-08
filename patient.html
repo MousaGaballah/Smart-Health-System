@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Patient · Smart Health · Personal Dashboard</title>
+    <link rel="stylesheet" href="css/patient.css">
+    <link rel="icon" type="image/png" href="assets\icons\heart-rate.png">
     <!-- Font Awesome 6 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <!-- Google Fonts Inter -->
@@ -11,521 +13,9 @@
     <!-- Chart.js and ApexCharts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-    <!-- Firebase (commented out – uncomment when backend ready) -->
-    <!-- <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script> -->
-    <style>
-        /* ---------- RESET & GLOBAL ---------- */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        /* ---------- CSS VARIABLES (LIGHT/DARK THEMES) ---------- */
-        :root {
-            --bg-body: #f8fafd;
-            --text-primary: #1e293b;
-            --text-secondary: #475569;
-            --sidebar-bg: #ffffff;
-            --sidebar-border: #e9eef2;
-            --card-bg: #ffffff;
-            --card-border: #edf2f7;
-            --input-border: #e2e8f0;
-            --input-bg: #ffffff;
-            --hover-bg: #f8fafc;
-            --active-bg: #eef2ff;
-            --active-color: #2563eb;
-            --icon-color: #64748b;
-            --stat-sub-color: #3b82f6;
-            --badge-completed-bg: #dcfce7;
-            --badge-completed-color: #166534;
-            --badge-delayed-bg: #fee2e2;
-            --badge-delayed-color: #b91c1c;
-            --badge-risk-bg: #fff3cd;
-            --badge-risk-color: #856404;
-            --badge-ongoing-bg: #e6f0ff;
-            --badge-ongoing-color: #2563eb;
-            --alert-bg: #fff8e8;
-            --alert-border: #f59e0b;
-            --chart-grid: rgba(0,0,0,0.05);
-        }
-
-        [data-theme="dark"] {
-            --bg-body: #0b1120;
-            --text-primary: #f1f5f9;
-            --text-secondary: #cbd5e1;
-            --sidebar-bg: #1e293b;
-            --sidebar-border: #334155;
-            --card-bg: #1e293b;
-            --card-border: #334155;
-            --input-border: #334155;
-            --input-bg: #0f172a;
-            --hover-bg: #334155;
-            --active-bg: #2563eb20;
-            --active-color: #60a5fa;
-            --icon-color: #94a3b8;
-            --stat-sub-color: #60a5fa;
-            --badge-completed-bg: #16653440;
-            --badge-completed-color: #86efac;
-            --badge-delayed-bg: #b91c1c40;
-            --badge-delayed-color: #fca5a5;
-            --badge-risk-bg: #854d0e40;
-            --badge-risk-color: #fde047;
-            --badge-ongoing-bg: #2563eb40;
-            --badge-ongoing-color: #93c5fd;
-            --alert-bg: #854d0e20;
-            --alert-border: #fbbf24;
-            --chart-grid: rgba(255,255,255,0.05);
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg-body);
-            color: var(--text-primary);
-            line-height: 1.5;
-            overflow-x: hidden;
-            transition: background 0.3s ease, color 0.2s ease;
-        }
-
-        /* ---------- SIDEBAR (same as doctor) ---------- */
-        .app-wrapper {
-            display: flex;
-            min-height: 100vh;
-        }
-
-        .sidebar {
-            width: 280px;
-            background: var(--sidebar-bg);
-            border-right: 1px solid var(--sidebar-border);
-            padding: 2rem 1.5rem;
-            display: flex;
-            flex-direction: column;
-            transition: width 0.3s ease, background 0.3s ease;
-            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.02);
-        }
-
-        .sidebar.collapsed {
-            width: 80px;
-            padding: 2rem 0.8rem;
-        }
-
-        .sidebar-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 2.5rem;
-        }
-
-        .logo-area {
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            font-weight: 700;
-            font-size: 1.4rem;
-            color: var(--active-color);
-        }
-
-        .logo-area i {
-            font-size: 2rem;
-            background: linear-gradient(145deg, #2563eb, #7c3aed);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-
-        .collapse-btn {
-            background: none;
-            border: 1px solid var(--input-border);
-            border-radius: 12px;
-            width: 36px;
-            height: 36px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--icon-color);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .collapse-btn:hover {
-            background: var(--hover-bg);
-            color: var(--active-color);
-            border-color: var(--active-color);
-        }
-
-        .sidebar-menu {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 0.8rem;
-        }
-
-        .menu-item {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            padding: 0.8rem 1rem;
-            border-radius: 16px;
-            color: var(--text-secondary);
-            font-weight: 500;
-            transition: all 0.2s;
-            cursor: pointer;
-            white-space: nowrap;
-            text-decoration: none;
-        }
-
-        .menu-item i {
-            font-size: 1.3rem;
-            width: 24px;
-            color: var(--icon-color);
-        }
-
-        .menu-item.active {
-            background: var(--active-bg);
-            color: var(--active-color);
-        }
-
-        .menu-item.active i {
-            color: var(--active-color);
-        }
-
-        .menu-item:hover:not(.active) {
-            background: var(--hover-bg);
-            color: var(--text-primary);
-        }
-
-        .sidebar.collapsed .menu-item span {
-            display: none;
-        }
-
-        .sidebar.collapsed .logo-area span {
-            display: none;
-        }
-
-        .sidebar-footer {
-            margin-top: auto;
-            border-top: 1px solid var(--sidebar-border);
-            padding-top: 1.5rem;
-        }
-
-        /* ---------- MAIN CONTENT ---------- */
-        .main-content {
-            flex: 1;
-            padding: 2rem 2.5rem;
-            overflow-y: auto;
-        }
-
-        /* top header */
-        .top-bar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 2rem;
-        }
-
-        .search-area {
-            display: flex;
-            align-items: center;
-            background: var(--card-bg);
-            border-radius: 60px;
-            padding: 0.3rem 0.3rem 0.3rem 1.5rem;
-            border: 1px solid var(--input-border);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
-        }
-
-        .search-area i {
-            color: var(--icon-color);
-        }
-
-        .search-area input {
-            border: none;
-            padding: 0.6rem 1rem;
-            font-size: 0.95rem;
-            width: 260px;
-            outline: none;
-            background: transparent;
-            color: var(--text-primary);
-        }
-
-        .search-area button {
-            background: var(--active-color);
-            border: none;
-            border-radius: 40px;
-            padding: 0.6rem 1.5rem;
-            color: white;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-
-        .search-area button:hover {
-            opacity: 0.9;
-        }
-
-        .date-badge {
-            background: var(--card-bg);
-            border-radius: 40px;
-            padding: 0.5rem 1.5rem;
-            border: 1px solid var(--input-border);
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            color: var(--text-primary);
-        }
-
-        .date-badge i {
-            color: var(--active-color);
-        }
-
-        /* stats cards (patient specific) */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1.5rem;
-            margin-bottom: 2.5rem;
-        }
-
-        .stat-card {
-            background: var(--card-bg);
-            border-radius: 28px;
-            padding: 1.6rem 1.5rem;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.03);
-            border: 1px solid var(--card-border);
-            transition: 0.2s;
-        }
-
-        .stat-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 20px 30px -8px rgba(37,99,235,0.1);
-            border-color: var(--active-color);
-        }
-
-        .stat-title {
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--text-secondary);
-            margin-bottom: 0.5rem;
-        }
-
-        .stat-value {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-
-        .stat-sub {
-            color: var(--stat-sub-color);
-            font-weight: 600;
-            margin-top: 0.3rem;
-            font-size: 0.9rem;
-        }
-
-        /* vitals grid (original cards) */
-        .cards-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.8rem;
-            margin-bottom: 2.5rem;
-        }
-
-        .card {
-            background: var(--card-bg);
-            border-radius: 28px;
-            padding: 1.8rem;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.03);
-            border: 1px solid var(--card-border);
-            transition: all 0.2s;
-        }
-
-        .card:hover {
-            border-color: var(--active-color);
-            box-shadow: 0 20px 30px -8px rgba(0,0,0,0.05);
-        }
-
-        .card-header {
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            margin-bottom: 1.2rem;
-        }
-
-        .card-header i {
-            font-size: 2rem;
-            color: var(--active-color);
-            background: var(--active-bg);
-            padding: 0.6rem;
-            border-radius: 18px;
-        }
-
-        .card-header h3 {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-        }
-
-        .card-value {
-            font-size: 2.6rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-bottom: 0.5rem;
-        }
-
-        .card-value span {
-            font-size: 1rem;
-            font-weight: 400;
-            color: var(--text-secondary);
-        }
-
-        .card-indicator {
-            display: inline-block;
-            padding: 0.25rem 1rem;
-            border-radius: 30px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .indicator-normal {
-            background: var(--badge-completed-bg);
-            color: var(--badge-completed-color);
-        }
-
-        .indicator-warning {
-            background: var(--badge-risk-bg);
-            color: var(--badge-risk-color);
-            animation: pulse 1.5s infinite;
-        }
-
-        .indicator-danger {
-            background: var(--badge-delayed-bg);
-            color: var(--badge-delayed-color);
-            animation: shake 0.5s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 0.8; }
-            50% { opacity: 1; }
-            100% { opacity: 0.8; }
-        }
-        @keyframes shake {
-            0%,100% { transform: translateX(0); }
-            25% { transform: translateX(3px); }
-            75% { transform: translateX(-3px); }
-        }
-
-        .chart-container { height: 120px; margin-top: 1rem; }
-
-        /* alerts section (patient) */
-        .alerts-section {
-            background: var(--card-bg);
-            border-radius: 28px;
-            padding: 1.8rem;
-            margin: 2rem 0;
-            border: 1px solid var(--card-border);
-        }
-
-        .alerts-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.2rem;
-        }
-
-        .alerts-header h3 {
-            font-size: 1.4rem;
-            font-weight: 700;
-        }
-
-        .mute-button {
-            background: none;
-            border: 1px solid var(--input-border);
-            border-radius: 40px;
-            padding: 0.5rem 1.2rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .mute-button.muted {
-            color: var(--active-color);
-            border-color: var(--active-color);
-        }
-
-        .alerts-list {
-            max-height: 200px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 0.7rem;
-        }
-
-        .alert-item {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            padding: 0.8rem 1.2rem;
-            background: var(--alert-bg);
-            border-left: 5px solid var(--alert-border);
-            border-radius: 16px;
-            animation: slideIn 0.3s ease;
-        }
-
-        .alert-item i {
-            font-size: 1.4rem;
-            color: var(--alert-border);
-        }
-
-        .alert-content {
-            flex: 1;
-        }
-
-        .alert-title {
-            font-weight: 700;
-        }
-
-        .alert-time {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-        }
-
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateX(-10px); }
-            to { opacity: 1; transform: translateX(0); }
-        }
-
-        /* export button */
-        .export-btn {
-            background: var(--active-color);
-            color: white;
-            border: none;
-            border-radius: 40px;
-            padding: 0.6rem 1.5rem;
-            font-weight: 600;
-            cursor: pointer;
-            margin-bottom: 1rem;
-        }
-
-        /* responsiveness */
-        @media (max-width: 1200px) {
-            .stats-grid { grid-template-columns: repeat(2,1fr); }
-        }
-
-        @media (max-width: 900px) {
-            .app-wrapper { flex-direction: column; }
-            .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--sidebar-border); }
-            .main-content { padding: 1.5rem; }
-        }
-    </style>
+    <!-- Include jsPDF library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
     <div class="app-wrapper">
@@ -578,8 +68,8 @@
             <div class="top-bar">
                 <div class="search-area">
                     <i class="fas fa-search"></i>
-                    <input type="text" placeholder="Search...">
-                    <button><i class="fas fa-sliders-h"></i> Filters</button>
+                    <input type="text" id="globalSearch" placeholder="Search...">
+                    <button id="filterBtn"><i class="fas fa-sliders-h"></i> Filters</button>
                 </div>
                 <div style="display: flex; gap: 1rem;">
                     <div class="date-badge">
@@ -593,315 +83,407 @@
                 </div>
             </div>
 
-            <!-- STATS CARDS (Patient overview) -->
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-title">Health Score</div>
-                    <div class="stat-value" id="healthScore">85</div>
-                    <div class="stat-sub"><i class="fas fa-arrow-up"></i> +2%</div>
+            <!-- Filter Dropdown (hidden by default) -->
+            <div class="filter-dropdown" id="filterDropdown">
+                <div class="filter-header">
+                    <h4>Filter Options</h4>
+                    <button class="close-filter" id="closeFilter"><i class="fas fa-times"></i></button>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-title">Active Alerts</div>
-                    <div class="stat-value" id="activeAlertsCount">3</div>
-                    <div class="stat-sub"><i class="fas fa-exclamation-triangle" style="color:#e11d48;"></i> 2 critical</div>
+                <div class="filter-body">
+                    <div class="filter-section">
+                        <label>Status</label>
+                        <select id="filterStatus">
+                            <option value="all">All</option>
+                            <option value="completed">Completed</option>
+                            <option value="ongoing">Ongoing</option>
+                            <option value="scheduled">Scheduled</option>
+                        </select>
+                    </div>
+                    <div class="filter-section">
+                        <label>Doctor</label>
+                        <select id="filterDoctor">
+                            <option value="all">All</option>
+                            <option value="Dr. Emily Davis">Dr. Emily Davis</option>
+                            <option value="Dr. Michael Chen">Dr. Michael Chen</option>
+                            <option value="Dr. Sarah Lee">Dr. Sarah Lee</option>
+                        </select>
+                    </div>
+                    <div class="filter-section">
+                        <label>Date Range</label>
+                        <input type="date" id="filterStartDate"> to <input type="date" id="filterEndDate">
+                    </div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-title">Last Checkup</div>
-                    <div class="stat-value" style="font-size: 2rem;">24 Mar</div>
-                    <div class="stat-sub">7 days ago</div>
+                <div class="filter-footer">
+                    <button class="btn" id="applyFilter">Apply</button>
+                    <button class="btn btn-secondary" id="resetFilter">Reset</button>
                 </div>
             </div>
 
-            <!-- VITALS GRID (real-time patient data) -->
-            <div class="cards-grid" id="patientVitals">
-                <div class="card" id="heartCard">
-                    <div class="card-header">
-                        <i class="fas fa-heart"></i>
-                        <h3>Heart Rate</h3>
+            <!-- Date Range Dropdown (hidden by default) -->
+            <div class="date-dropdown" id="dateDropdown">
+                <ul>
+                    <li data-range="7">Last 7 days</li>
+                    <li data-range="30" class="active">Last 30 days</li>
+                    <li data-range="90">Last 3 months</li>
+                    <li data-range="custom">Custom range</li>
+                </ul>
+            </div>
+
+            <!-- PAGE SECTIONS -->
+            <!-- DASHBOARD PAGE (active by default) -->
+            <div class="page-section active" id="dashboardPage">
+                <!-- STATS CARDS (Patient overview) -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-title">Health Score</div>
+                        <div class="stat-value" id="healthScore">85</div>
+                        <div class="stat-sub"><i class="fas fa-arrow-up"></i> +2%</div>
                     </div>
-                    <div class="card-value" id="heartValue">-- <span>bpm</span></div>
-                    <div class="card-indicator indicator-normal" id="heartIndicator">Normal</div>
-                    <div class="chart-container">
-                        <canvas id="heartChart"></canvas>
+                    <div class="stat-card">
+                        <div class="stat-title">Active Alerts</div>
+                        <div class="stat-value" id="activeAlertsCount">3</div>
+                        <div class="stat-sub"><i class="fas fa-exclamation-triangle" style="color:#e11d48;"></i> 2 critical</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-title">Last Checkup</div>
+                        <div class="stat-value" style="font-size: 2rem;">24 Mar</div>
+                        <div class="stat-sub">7 days ago</div>
                     </div>
                 </div>
-                <div class="card" id="spo2Card">
-                    <div class="card-header">
-                        <i class="fas fa-lungs"></i>
-                        <h3>SpO₂</h3>
+
+                <!-- VITALS GRID (real-time patient data) -->
+                <div class="cards-grid" id="patientVitals">
+                    <div class="card" id="heartCard">
+                        <div class="card-header">
+                            <i class="fas fa-heart"></i>
+                            <h3>Heart Rate</h3>
+                        </div>
+                        <div class="card-value" id="heartValue">-- <span>bpm</span></div>
+                        <div class="card-indicator indicator-normal" id="heartIndicator">Normal</div>
+                        <div class="chart-container">
+                            <canvas id="heartChart"></canvas>
+                        </div>
                     </div>
-                    <div class="card-value" id="spo2Value">-- <span>%</span></div>
-                    <div class="card-indicator indicator-normal" id="spo2Indicator">Normal</div>
-                    <div class="chart-container">
-                        <canvas id="spo2Chart"></canvas>
+                    <div class="card" id="spo2Card">
+                        <div class="card-header">
+                            <i class="fas fa-lungs"></i>
+                            <h3>SpO₂</h3>
+                        </div>
+                        <div class="card-value" id="spo2Value">-- <span>%</span></div>
+                        <div class="card-indicator indicator-normal" id="spo2Indicator">Normal</div>
+                        <div class="chart-container">
+                            <canvas id="spo2Chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="card" id="tempCard">
+                        <div class="card-header">
+                            <i class="fas fa-thermometer-half"></i>
+                            <h3>Body Temp</h3>
+                        </div>
+                        <div class="card-value" id="tempValue">-- <span>°C</span></div>
+                        <div class="card-indicator indicator-normal" id="tempIndicator">Normal</div>
+                        <div class="chart-container">
+                            <canvas id="tempChart"></canvas>
+                        </div>
                     </div>
                 </div>
-                <div class="card" id="tempCard">
-                    <div class="card-header">
-                        <i class="fas fa-thermometer-half"></i>
-                        <h3>Body Temp</h3>
+                
+                <!-- BUTTON EXPORT (optional) -->
+                <button class="export-btn" id="exportBtn"><i class="fas fa-download"></i> Export My Health Report</button>
+
+                <!-- ALERTS SECTION (patient-specific) -->
+                <div class="alerts-section">
+                    <div class="alerts-header">
+                        <h3><i class="fas fa-bell"></i> Your Alerts</h3>
+                        <button class="mute-button" id="muteAlerts"><i class="fas fa-volume-up"></i> Mute</button>
                     </div>
-                    <div class="card-value" id="tempValue">-- <span>°C</span></div>
-                    <div class="card-indicator indicator-normal" id="tempIndicator">Normal</div>
-                    <div class="chart-container">
-                        <canvas id="tempChart"></canvas>
+                    <div class="alerts-list" id="alertsList">
+                        <!-- Alerts will be injected by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- HISTORICAL TRENDS (24h) -->
+                <h2>📈 Your 24h Trends</h2>
+                <div class="cards-grid">
+                    <div class="card">
+                        <h3>Heart Rate Variability</h3>
+                        <div id="heartHistoryChart" style="height: 250px;"></div>
+                    </div>
+                    <div class="card">
+                        <h3>Oxygen Saturation Trend</h3>
+                        <div id="spo2HistoryChart" style="height: 250px;"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- BUTTON EXPORT (optional) -->
-            <button class="export-btn" id="exportBtn"><i class="fas fa-download"></i> Export My Health Report</button>
+            <!-- PROFILE PAGE -->
+            <div class="page-section" id="profilePage">
+                <h2>👤 My Profile</h2>
+                <div class="profile-container">
+                    <!-- Profile Picture Section -->
+                    <div class="profile-picture-section">
+                        <div class="profile-picture">
+                            <img src="https://via.placeholder.com/120" alt="Profile Picture" id="profileImage">
+                            <div class="profile-picture-overlay" id="changePicOverlay">
+                                <i class="fas fa-camera"></i>
+                                <span>Change Photo</span>
+                            </div>
+                            <input type="file" id="profilePicInput" accept="image/*" style="display: none;">
+                        </div>
+                    </div>
 
-            <!-- ALERTS SECTION (patient-specific) -->
-            <div class="alerts-section">
-                <div class="alerts-header">
-                    <h3><i class="fas fa-bell"></i> Your Alerts</h3>
-                    <button class="mute-button" id="muteAlerts"><i class="fas fa-volume-up"></i> Mute</button>
-                </div>
-                <div class="alerts-list" id="alertsList">
-                    <!-- Alerts will be injected by JavaScript -->
+                    <!-- Profile Details Form -->
+                    <div class="profile-form">
+                        <!-- Full Name -->
+                        <div class="form-group">
+                            <label><i class="fas fa-user"></i> Full Name</label>
+                            <div class="profile-field">
+                                <input type="text" class="form-control profile-input" id="profileName" value="John Doe" placeholder="Enter your full name" readonly>
+                                <span class="field-icon"><i class="fas fa-pencil-alt edit-icon" data-field="name"></i></span>
+                            </div>
+                        </div>
+
+                        <!-- Email -->
+                        <div class="form-group">
+                            <label><i class="fas fa-envelope"></i> Email</label>
+                            <div class="profile-field">
+                                <input type="email" class="form-control profile-input" id="profileEmail" value="john.doe@example.com" placeholder="Enter your email" readonly>
+                                <span class="field-icon"><i class="fas fa-pencil-alt edit-icon" data-field="email"></i></span>
+                            </div>
+                        </div>
+
+                        <!-- Phone -->
+                        <div class="form-group">
+                            <label><i class="fas fa-phone"></i> Phone Number</label>
+                            <div class="profile-field">
+                                <input type="tel" class="form-control profile-input" id="profilePhone" value="+1 234 567 890" placeholder="Enter phone number" readonly>
+                                <span class="field-icon"><i class="fas fa-pencil-alt edit-icon" data-field="phone"></i></span>
+                            </div>
+                        </div>
+
+                        <!-- Date of Birth -->
+                        <div class="form-group">
+                            <label><i class="fas fa-calendar-alt"></i> Date of Birth</label>
+                            <div class="profile-field">
+                                <input type="date" class="form-control profile-input" id="profileDob" value="1985-05-15" readonly>
+                                <span class="field-icon"><i class="fas fa-pencil-alt edit-icon" data-field="dob"></i></span>
+                            </div>
+                        </div>
+
+                        <!-- Blood Type (dropdown) -->
+                        <div class="form-group">
+                            <label><i class="fas fa-tint"></i> Blood Type</label>
+                            <div class="profile-field">
+                                <select class="form-control profile-input" id="profileBlood" disabled>
+                                    <option value="A+">A+</option>
+                                    <option value="A-">A-</option>
+                                    <option value="B+">B+</option>
+                                    <option value="B-">B-</option>
+                                    <option value="AB+">AB+</option>
+                                    <option value="AB-">AB-</option>
+                                    <option value="O+" selected>O+</option>
+                                    <option value="O-">O-</option>
+                                </select>
+                                <span class="field-icon"><i class="fas fa-pencil-alt edit-icon" data-field="blood"></i></span>
+                            </div>
+                        </div>
+
+                        <!-- Gender -->
+                        <div class="form-group">
+                            <label><i class="fas fa-venus-mars"></i> Gender</label>
+                            <div class="profile-field">
+                                <select class="form-control profile-input" id="profileGender" disabled>
+                                    <option value="male">Male</option>
+                                    <option value="female">Female</option>
+                                    <option value="other">Other</option>
+                                </select>
+                                <span class="field-icon"><i class="fas fa-pencil-alt edit-icon" data-field="gender"></i></span>
+                            </div>
+                        </div>
+
+                        <!-- Address -->
+                        <div class="form-group">
+                            <label><i class="fas fa-map-marker-alt"></i> Address</label>
+                            <div class="profile-field">
+                                <input type="text" class="form-control profile-input" id="profileAddress" value="123 Main St, City, Country" placeholder="Enter address" readonly>
+                                <span class="field-icon"><i class="fas fa-pencil-alt edit-icon" data-field="address"></i></span>
+                            </div>
+                        </div>
+
+                        <!-- Password Change Section (hidden by default) -->
+                        <div class="password-section" id="passwordSection" style="display: none;">
+                            <h4>Change Password</h4>
+                            <div class="form-group">
+                                <label>New Password</label>
+                                <div class="password-input-wrapper">
+                                    <input type="password" class="form-control" id="newPassword" placeholder="Enter new password">
+                                    <span class="password-toggle" onclick="togglePasswordVisibility('newPassword')">
+                                        <i class="fas fa-eye"></i>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Confirm New Password</label>
+                                <div class="password-input-wrapper">
+                                    <input type="password" class="form-control" id="confirmPassword" placeholder="Confirm new password">
+                                    <span class="password-toggle" onclick="togglePasswordVisibility('confirmPassword')">
+                                        <i class="fas fa-eye"></i>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="password-actions">
+                                <button class="btn btn-success" id="savePasswordBtn"><i class="fas fa-save"></i> Save Password</button>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="profile-actions">
+                            <button class="btn btn-primary" id="editProfileBtn"><i class="fas fa-edit"></i> Edit Profile</button>
+                            <button class="btn btn-success" id="saveProfileBtn" style="display: none;"><i class="fas fa-save"></i> Save Changes</button>
+                            <button class="btn btn-secondary" id="cancelProfileBtn" style="display: none;"><i class="fas fa-times"></i> Cancel</button>
+                            <button class="btn btn-link" id="changePasswordBtn"><i class="fas fa-key"></i> Change Password</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- HISTORICAL TRENDS (24h) -->
-            <h2>📈 Your 24h Trends</h2>
-            <div class="cards-grid">
-                <div class="card">
-                    <h3>Heart Rate Variability</h3>
-                    <div id="heartHistoryChart" style="height: 250px;"></div>
+            <!-- HISTORY PAGE -->
+            <div class="page-section" id="historyPage">
+                <h2>📋 Medical History</h2>
+                <div class="table-container">
+                    <input type="text" id="historySearch" class="form-control" placeholder="Search records..." style="margin-bottom:1rem;">
+                    <table id="historyTable">
+                        <thead>
+                            <tr><th>Date</th><th>Diagnosis</th><th>Doctor</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>2025-03-10</td><td>Hypertension</td><td>Dr. Emily Davis</td><td><span class="status-badge status-completed">Treated</span></td></tr>
+                            <tr><td>2025-02-22</td><td>Diabetes Check</td><td>Dr. Michael Chen</td><td><span class="status-badge status-ongoing">Follow-up</span></td></tr>
+                            <tr><td>2025-01-15</td><td>General Checkup</td><td>Dr. Sarah Lee</td><td><span class="status-badge status-completed">Completed</span></td></tr>
+                        </tbody>
+                    </table>
                 </div>
-                <div class="card">
-                    <h3>Oxygen Saturation Trend</h3>
-                    <div id="spo2HistoryChart" style="height: 250px;"></div>
+            </div>
+
+            <!-- APPOINTMENTS PAGE -->
+            <div class="page-section" id="appointmentsPage">
+                <h2>📅 My Appointments</h2>
+                <div class="table-container">
+                    <input type="text" id="appointmentSearch" class="form-control" placeholder="Search appointments..." style="margin-bottom:1rem;">
+                    <table id="appointmentsTable">
+                        <thead>
+                            <tr><th>Date</th><th>Time</th><th>Doctor</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>2025-04-05</td><td>10:30</td><td>Dr. Emily Davis</td><td><span class="status-badge status-ongoing">Scheduled</span></td></tr>
+                            <tr><td>2025-04-12</td><td>14:00</td><td>Dr. Michael Chen</td><td><span class="status-badge status-ongoing">Scheduled</span></td></tr>
+                            <tr><td>2025-03-28</td><td>09:15</td><td>Dr. Sarah Lee</td><td><span class="status-badge status-completed">Completed</span></td></tr>
+                        </tbody>
+                    </table>
                 </div>
+            </div>
+
+            <!-- REPORTS PAGE -->
+            <div class="page-section" id="reportsPage">
+                <h2>📝 Submit Your Health Report</h2>
+                <form id="patientReportForm" class="report-form">
+                    <!-- Patient Details -->
+                    <div class="form-group">
+                        <label for="patientName">Patient Name</label>
+                        <input type="text" id="patientName" name="patientName" placeholder="Your Name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="patientAge">Age</label>
+                        <input type="number" id="patientAge" name="patientAge" placeholder="Your Age" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="patientGender">Gender</label>
+                        <select id="patientGender" name="patientGender" required>
+                            <option value="">Select Gender</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                        </select>
+                    </div>
+                    <!-- Doctor Selection -->
+                    <div class="form-group">
+                        <label for="doctorSelect">Send To Doctor</label>
+                        <select id="doctorSelect" name="doctorSelect" required>
+                            <option value="">Select Doctor</option>
+                            <option value="drAhmed">Dr. Ahmed</option>
+                            <option value="drMona">Dr. Mona</option>
+                        </select>
+                    </div>
+                    <!-- Health Report -->
+                    <div class="form-group">
+                        <label for="healthCondition">Health Condition / Symptoms</label>
+                        <textarea id="healthCondition" name="healthCondition" rows="4" placeholder="Describe your health condition..." required></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="medications">Medications (if any)</label>
+                        <textarea id="medications" name="medications" rows="3" placeholder="List any medications you are taking..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="additionalNotes">Additional Notes</label>
+                        <textarea id="additionalNotes" name="additionalNotes" rows="2" placeholder="Any extra notes..."></textarea>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="btn-submit">💾 Save & Send Report</button>
+                </form>
+            </div>
+
+            <!-- SETTINGS PAGE -->
+            <div class="page-section" id="settingsPage">
+                <h2>⚙️ Settings</h2>
+                <div class="form-container">
+                    <div class="form-group">
+                        <label>Notification Email</label>
+                        <input type="email" class="form-control" id="settingsEmail" placeholder="my.email@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Language</label>
+                        <select class="form-control" id="settingsLanguage">
+                            <option value="en">English</option>
+                            <option value="ar">Arabic</option>
+                        </select>
+                    </div>
+                    <button class="btn" id="saveSettings">Save Settings</button>
+                </div>
+            </div>
+
+            <!-- SUPPORT PAGE -->
+            <div class="page-section" id="supportPage">
+                <h2>🆘 Support</h2>
+                <p>Contact support at support@smarthealth.com or call 1-800-555-1234.</p>
             </div>
         </main>
     </div>
 
-    <!-- JavaScript files (integrated) -->
-    <script>
-        (function() {
-            "use strict";
+    <!-- Firebase (commented out – uncomment when backend is ready) -->
+    <!-- <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script> -->
+    
+    <!-- MQTT library (real connection, currently simulated internally) -->
+    <!-- <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script> -->
 
-            // ==================== GLOBAL VARIABLES ====================
-            let mqttSimInterval;                // Interval for simulated MQTT updates
-            let alertSoundEnabled = true;        // Sound toggle state
-
-            // -------------------- Alert Sound using Web Audio API --------------------
-            const alertSound = (() => {
-                try {
-                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    return (type = 'warning') => {
-                        if (!alertSoundEnabled) return;
-                        const osc = audioCtx.createOscillator();
-                        const gain = audioCtx.createGain();
-                        osc.connect(gain);
-                        gain.connect(audioCtx.destination);
-                        osc.frequency.value = type === 'danger' ? 800 : 400;
-                        gain.gain.value = 0.2;
-                        osc.start();
-                        osc.stop(audioCtx.currentTime + 0.2);
-                    };
-                } catch (e) {
-                    return () => {};
-                }
-            })();
-
-            // ==================== THEME TOGGLE ====================
-            const themeToggle = document.getElementById('themeToggle');
-            const html = document.documentElement;
-            const themeIcon = themeToggle.querySelector('i');
-            const savedTheme = localStorage.getItem('theme') || 'light';
-            html.setAttribute('data-theme', savedTheme);
-            themeIcon.className = savedTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-
-            themeToggle.addEventListener('click', () => {
-                const current = html.getAttribute('data-theme');
-                const newTheme = current === 'dark' ? 'light' : 'dark';
-                html.setAttribute('data-theme', newTheme);
-                localStorage.setItem('theme', newTheme);
-                themeIcon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-            });
-
-            // ==================== SIDEBAR COLLAPSE ====================
-            const sidebar = document.getElementById('sidebar');
-            const collapseBtn = document.getElementById('collapseSidebar');
-            collapseBtn.addEventListener('click', () => {
-                sidebar.classList.toggle('collapsed');
-                const icon = collapseBtn.querySelector('i');
-                if (sidebar.classList.contains('collapsed')) {
-                    icon.classList.remove('fa-chevron-left');
-                    icon.classList.add('fa-chevron-right');
-                } else {
-                    icon.classList.remove('fa-chevron-right');
-                    icon.classList.add('fa-chevron-left');
-                }
-            });
-
-            // ==================== SIDEBAR ACTIVE STATE ====================
-            const menuItems = document.querySelectorAll('.menu-item');
-            menuItems.forEach(item => {
-                item.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    menuItems.forEach(i => i.classList.remove('active'));
-                    this.classList.add('active');
-                    // Future navigation based on data-page
-                });
-            });
-
-            // ==================== MUTE ALERTS BUTTON ====================
-            const muteBtn = document.getElementById('muteAlerts');
-            muteBtn.addEventListener('click', () => {
-                alertSoundEnabled = !alertSoundEnabled;
-                muteBtn.innerHTML = alertSoundEnabled ? '<i class="fas fa-volume-up"></i> Mute' : '<i class="fas fa-volume-mute"></i> Unmute';
-                muteBtn.classList.toggle('muted', !alertSoundEnabled);
-            });
-
-            // ==================== CHARTS INITIALIZATION (Chart.js) ====================
-            const heartCtx = document.getElementById('heartChart')?.getContext('2d');
-            const spo2Ctx = document.getElementById('spo2Chart')?.getContext('2d');
-            const tempCtx = document.getElementById('tempChart')?.getContext('2d');
-
-            let heartChart, spo2Chart, tempChart;
-            const heartHistory = [], spo2History = [], tempHistory = [], timeLabels = [];
-
-            if (heartCtx) {
-                heartChart = new Chart(heartCtx, {
-                    type: 'line',
-                    data: { labels: [], datasets: [{ label: 'Heart Rate', data: [], borderColor: '#2563eb', backgroundColor: '#2563eb20', tension: 0.3, fill: true }] },
-                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 40, max: 120 } }, plugins: { legend: { display: false } } }
-                });
-            }
-            if (spo2Ctx) {
-                spo2Chart = new Chart(spo2Ctx, {
-                    type: 'line',
-                    data: { labels: [], datasets: [{ label: 'SpO2', data: [], borderColor: '#10b981', backgroundColor: '#10b98120', tension: 0.3, fill: true }] },
-                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 85, max: 100 } }, plugins: { legend: { display: false } } }
-                });
-            }
-            if (tempCtx) {
-                tempChart = new Chart(tempCtx, {
-                    type: 'line',
-                    data: { labels: [], datasets: [{ label: 'Temp', data: [], borderColor: '#f59e0b', backgroundColor: '#f59e0b20', tension: 0.3, fill: true }] },
-                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 35, max: 39 } }, plugins: { legend: { display: false } } }
-                });
-            }
-
-            function updateCharts(heart, spo2, temp) {
-                const now = new Date().toLocaleTimeString();
-                if (heart) { heartHistory.push(heart); if (heartHistory.length > 20) heartHistory.shift(); }
-                if (spo2) { spo2History.push(spo2); if (spo2History.length > 20) spo2History.shift(); }
-                if (temp) { tempHistory.push(temp); if (tempHistory.length > 20) tempHistory.shift(); }
-                timeLabels.push(now);
-                if (timeLabels.length > 20) timeLabels.shift();
-
-                if (heartChart) { heartChart.data.labels = timeLabels; heartChart.data.datasets[0].data = heartHistory; heartChart.update(); }
-                if (spo2Chart) { spo2Chart.data.labels = timeLabels; spo2Chart.data.datasets[0].data = spo2History; spo2Chart.update(); }
-                if (tempChart) { tempChart.data.labels = timeLabels; tempChart.data.datasets[0].data = tempHistory; tempChart.update(); }
-            }
-
-            // ==================== APEXCHARTS FOR HISTORY ====================
-            const heartHistoryChart = new ApexCharts(document.querySelector("#heartHistoryChart"), {
-                chart: { type: 'area', height: 250, animations: { enabled: true, speed: 500 } },
-                series: [{ name: 'Heart Rate', data: [72,75,71,73,74,72,70,73,75,74,73,72] }],
-                xaxis: { categories: ['00','02','04','06','08','10','12','14','16','18','20','22'] },
-                colors: ['#2563eb'],
-                fill: { type: 'gradient' }
-            });
-            heartHistoryChart.render();
-
-            const spo2HistoryChart = new ApexCharts(document.querySelector("#spo2HistoryChart"), {
-                chart: { type: 'area', height: 250, animations: { enabled: true, speed: 500 } },
-                series: [{ name: 'SpO₂', data: [98,97,98,99,98,97,98,98,97,98,99,98] }],
-                xaxis: { categories: ['00','02','04','06','08','10','12','14','16','18','20','22'] },
-                colors: ['#10b981'],
-                fill: { type: 'gradient' }
-            });
-            spo2HistoryChart.render();
-
-            // ==================== SIMULATED MQTT UPDATES ====================
-            function generateRandomVitals() {
-                return {
-                    heart: Math.floor(Math.random() * (85-65+1)) + 65,
-                    spo2: Math.floor(Math.random() * (99-94+1)) + 94,
-                    temp: (Math.random() * (37.5-36.0) + 36.0).toFixed(1)
-                };
-            }
-
-            function updateUI(vitals) {
-                document.getElementById('heartValue').innerHTML = vitals.heart + ' <span>bpm</span>';
-                document.getElementById('spo2Value').innerHTML = vitals.spo2 + ' <span>%</span>';
-                document.getElementById('tempValue').innerHTML = vitals.temp + ' <span>°C</span>';
-
-                // Update indicators
-                const heartInd = document.getElementById('heartIndicator');
-                if (vitals.heart > 100 || vitals.heart < 50) { heartInd.className = 'card-indicator indicator-danger'; heartInd.innerText = 'Critical'; }
-                else if (vitals.heart > 90 || vitals.heart < 60) { heartInd.className = 'card-indicator indicator-warning'; heartInd.innerText = 'Warning'; }
-                else { heartInd.className = 'card-indicator indicator-normal'; heartInd.innerText = 'Normal'; }
-
-                const spo2Ind = document.getElementById('spo2Indicator');
-                if (vitals.spo2 < 90) { spo2Ind.className = 'card-indicator indicator-danger'; spo2Ind.innerText = 'Critical'; }
-                else if (vitals.spo2 < 95) { spo2Ind.className = 'card-indicator indicator-warning'; spo2Ind.innerText = 'Warning'; }
-                else { spo2Ind.className = 'card-indicator indicator-normal'; spo2Ind.innerText = 'Normal'; }
-
-                const tempInd = document.getElementById('tempIndicator');
-                if (vitals.temp > 38.5 || vitals.temp < 35) { tempInd.className = 'card-indicator indicator-danger'; tempInd.innerText = 'Critical'; }
-                else if (vitals.temp > 37.5 || vitals.temp < 36) { tempInd.className = 'card-indicator indicator-warning'; tempInd.innerText = 'Warning'; }
-                else { tempInd.className = 'card-indicator indicator-normal'; tempInd.innerText = 'Normal'; }
-
-                updateCharts(vitals.heart, vitals.spo2, parseFloat(vitals.temp));
-
-                // Check for critical alerts
-                const alertsList = document.getElementById('alertsList');
-                if (vitals.heart > 100 || vitals.heart < 50 || vitals.spo2 < 90 || vitals.temp > 38.5 || vitals.temp < 35) {
-                    let msg = '';
-                    if (vitals.heart > 100) msg = 'Heart rate too high: ' + vitals.heart;
-                    else if (vitals.heart < 50) msg = 'Heart rate too low: ' + vitals.heart;
-                    else if (vitals.spo2 < 90) msg = 'Low SpO2: ' + vitals.spo2;
-                    else if (vitals.temp > 38.5) msg = 'High fever: ' + vitals.temp;
-                    else if (vitals.temp < 35) msg = 'Low temperature: ' + vitals.temp;
-
-                    const alertDiv = document.createElement('div');
-                    alertDiv.className = 'alert-item';
-                    alertDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i><div class="alert-content"><div class="alert-title">${msg}</div><div class="alert-time">${new Date().toLocaleTimeString()}</div></div>`;
-                    alertsList.prepend(alertDiv);
-                    if (alertsList.children.length > 10) alertsList.removeChild(alertsList.lastChild);
-                    alertSound('danger');
-                }
-            }
-
-            // Start simulation
-            const initialVitals = generateRandomVitals();
-            updateUI(initialVitals);
-            mqttSimInterval = setInterval(() => {
-                const newVitals = generateRandomVitals();
-                updateUI(newVitals);
-            }, 5000);
-
-            // Update health score and alert count dynamically (mock)
-            setInterval(() => {
-                const alertsCount = document.getElementById('alertsList').children.length;
-                document.getElementById('activeAlertsCount').innerText = alertsCount;
-                // Random health score between 60 and 100
-                document.getElementById('healthScore').innerText = Math.floor(Math.random() * 40 + 60);
-            }, 7000);
-
-            // ==================== EXPORT BUTTON ====================
-            document.getElementById('exportBtn').addEventListener('click', () => {
-                alert('PDF Export - would generate your health report. (jsPDF can be integrated)');
-            });
-
-            // ==================== CLEANUP ====================
-            window.addEventListener('beforeunload', () => {
-                if (mqttSimInterval) clearInterval(mqttSimInterval);
-            });
-        })();
-    </script>
-
+    <!-- <script src="js/firebase.js"></script> Firebase configuration -->
+    <script src="js/patient.js"></script> <!-- Main patient dashboard logic -->
+    <script src="js/theme.js"></script> <!-- Theme toggle script -->
+    <script src="js/notifications.js"></script> <!-- Alert system logic -->
     <!-- 
+        =========================================================================
         FIREBASE NOTES (commented out)
-        To enable Firebase, uncomment the SDK scripts in <head> and ensure firebase.js exists.
-        Modify the simulation to read/write from Firebase Realtime Database.
+        -------------------------------------------------------------------------
+        To enable Firebase backend:
+        1. Uncomment the Firebase SDK scripts in the <head> section.
+        2. Ensure you have a js/firebase.js file with your Firebase config.
+        3. Modify the MQTT simulation to push data to Firebase or read from it.
+        4. Update the login flow (index.html) to authenticate and redirect.
+        Currently the app runs entirely on simulated data, no Firebase required.
+        =========================================================================
     -->
 </body>
 </html>

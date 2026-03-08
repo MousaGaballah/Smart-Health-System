@@ -1,0 +1,1108 @@
+/* ---------- RESET & GLOBAL ---------- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* ---------- CSS VARIABLES (LIGHT/DARK THEMES) ---------- */
+:root {
+    --bg-body: #f8fafd;
+    --text-primary: #1e293b;
+    --text-secondary: #475569;
+    --sidebar-bg: #ffffff;
+    --sidebar-border: #e9eef2;
+    --card-bg: #ffffff;
+    --card-border: #edf2f7;
+    --input-border: #e2e8f0;
+    --input-bg: #ffffff;
+    --hover-bg: #f8fafc;
+    --active-bg: #eef2ff;
+    --active-color: #2563eb;
+    --icon-color: #64748b;
+    --stat-sub-color: #3b82f6;
+    --badge-completed-bg: #dcfce7;
+    --badge-completed-color: #166534;
+    --badge-delayed-bg: #fee2e2;
+    --badge-delayed-color: #b91c1c;
+    --badge-risk-bg: #fff3cd;
+    --badge-risk-color: #856404;
+    --badge-ongoing-bg: #e6f0ff;
+    --badge-ongoing-color: #2563eb;
+    --alert-bg: #fff8e8;
+    --alert-border: #f59e0b;
+    --chart-grid: rgba(0,0,0,0.05);
+    --notification-bg: #1e293b;
+    --notification-text: #f8fafc;
+}
+
+[data-theme="dark"] {
+    --bg-body: #0b1120;
+    --text-primary: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --sidebar-bg: #1e293b;
+    --sidebar-border: #334155;
+    --card-bg: #1e293b;
+    --card-border: #334155;
+    --input-border: #334155;
+    --input-bg: #0f172a;
+    --hover-bg: #334155;
+    --active-bg: #2563eb20;
+    --active-color: #60a5fa;
+    --icon-color: #94a3b8;
+    --stat-sub-color: #60a5fa;
+    --badge-completed-bg: #16653440;
+    --badge-completed-color: #86efac;
+    --badge-delayed-bg: #b91c1c40;
+    --badge-delayed-color: #fca5a5;
+    --badge-risk-bg: #854d0e40;
+    --badge-risk-color: #fde047;
+    --badge-ongoing-bg: #2563eb40;
+    --badge-ongoing-color: #93c5fd;
+    --alert-bg: #854d0e20;
+    --alert-border: #fbbf24;
+    --chart-grid: rgba(255,255,255,0.05);
+    --notification-bg: #334155;
+    --notification-text: #f1f5f9;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg-body);
+    color: var(--text-primary);
+    line-height: 1.5;
+    overflow-x: hidden;
+    transition: background 0.3s ease, color 0.2s ease;
+}
+
+/* ---------- SIDEBAR (same as doctor) ---------- */
+.app-wrapper {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    width: 280px;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--sidebar-border);
+    padding: 2rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    transition: width 0.3s ease, background 0.3s ease;
+    box-shadow: 4px 0 15px rgba(0, 0, 0, 0.02);
+}
+
+.sidebar.collapsed {
+    width: 80px;
+    padding: 2rem 0.8rem;
+}
+
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2.5rem;
+}
+
+.logo-area {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    font-weight: 700;
+    font-size: 1.4rem;
+    color: var(--active-color);
+}
+
+.logo-area i {
+    font-size: 2rem;
+    background: linear-gradient(145deg, #2563eb, #7c3aed);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.collapse-btn {
+    background: none;
+    border: 1px solid var(--input-border);
+    border-radius: 12px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--icon-color);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.collapse-btn:hover {
+    background: var(--hover-bg);
+    color: var(--active-color);
+    border-color: var(--active-color);
+}
+
+.sidebar-menu {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.8rem 1rem;
+    border-radius: 16px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    transition: all 0.2s;
+    cursor: pointer;
+    white-space: nowrap;
+    text-decoration: none;
+}
+
+.menu-item i {
+    font-size: 1.3rem;
+    width: 24px;
+    color: var(--icon-color);
+}
+
+.menu-item.active {
+    background: var(--active-bg);
+    color: var(--active-color);
+}
+
+.menu-item.active i {
+    color: var(--active-color);
+}
+
+.menu-item:hover:not(.active) {
+    background: var(--hover-bg);
+    color: var(--text-primary);
+}
+
+.sidebar.collapsed .menu-item span {
+    display: none;
+}
+
+.sidebar.collapsed .logo-area span {
+    display: none;
+}
+
+.sidebar-footer {
+    margin-top: auto;
+    border-top: 1px solid var(--sidebar-border);
+    padding-top: 1.5rem;
+}
+
+/* ---------- MAIN CONTENT ---------- */
+.main-content {
+    flex: 1;
+    padding: 2rem 2.5rem;
+    overflow-y: auto;
+}
+
+/* top header */
+.top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+}
+
+.search-area {
+    display: flex;
+    align-items: center;
+    background: var(--card-bg);
+    border-radius: 60px;
+    padding: 0.3rem 0.3rem 0.3rem 1.5rem;
+    border: 1px solid var(--input-border);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+}
+
+.search-area i {
+    color: var(--icon-color);
+}
+
+.search-area input {
+    border: none;
+    padding: 0.6rem 1rem;
+    font-size: 0.95rem;
+    width: 260px;
+    outline: none;
+    background: transparent;
+    color: var(--text-primary);
+}
+
+.search-area button {
+    background: var(--active-color);
+    border: none;
+    border-radius: 40px;
+    padding: 0.6rem 1.5rem;
+    color: white;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.search-area button:hover {
+    opacity: 0.9;
+}
+
+.date-badge {
+    background: var(--card-bg);
+    border-radius: 40px;
+    padding: 0.5rem 1.5rem;
+    border: 1px solid var(--input-border);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    color: var(--text-primary);
+}
+
+.date-badge i {
+    color: var(--active-color);
+}
+
+/* stats cards (patient specific) */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+}
+
+.stat-card {
+    background: var(--card-bg);
+    border-radius: 28px;
+    padding: 1.6rem 1.5rem;
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.03);
+    border: 1px solid var(--card-border);
+    transition: 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 30px -8px rgba(37,99,235,0.1);
+    border-color: var(--active-color);
+}
+
+.stat-title {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.stat-sub {
+    color: var(--stat-sub-color);
+    font-weight: 600;
+    margin-top: 0.3rem;
+    font-size: 0.9rem;
+}
+
+/* vitals grid (original cards) */
+.cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.8rem;
+    margin-bottom: 2.5rem;
+}
+
+.card {
+    background: var(--card-bg);
+    border-radius: 28px;
+    padding: 1.8rem;
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.03);
+    border: 1px solid var(--card-border);
+    transition: all 0.2s;
+}
+
+.card:hover {
+    border-color: var(--active-color);
+    box-shadow: 0 20px 30px -8px rgba(0,0,0,0.05);
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 1.2rem;
+}
+
+.card-header i {
+    font-size: 2rem;
+    color: var(--active-color);
+    background: var(--active-bg);
+    padding: 0.6rem;
+    border-radius: 18px;
+}
+
+.card-header h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.card-value {
+    font-size: 2.6rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.card-value span {
+    font-size: 1rem;
+    font-weight: 400;
+    color: var(--text-secondary);
+}
+
+.card-indicator {
+    display: inline-block;
+    padding: 0.25rem 1rem;
+    border-radius: 30px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.indicator-normal {
+    background: var(--badge-completed-bg);
+    color: var(--badge-completed-color);
+}
+
+.indicator-warning {
+    background: var(--badge-risk-bg);
+    color: var(--badge-risk-color);
+    animation: pulse 1.5s infinite;
+}
+
+.indicator-danger {
+    background: var(--badge-delayed-bg);
+    color: var(--badge-delayed-color);
+    animation: shake 0.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.8; }
+    50% { opacity: 1; }
+    100% { opacity: 0.8; }
+}
+@keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(3px); }
+    75% { transform: translateX(-3px); }
+}
+
+.chart-container { height: 120px; margin-top: 1rem; }
+
+/* alerts section (patient) */
+.alerts-section {
+    background: var(--card-bg);
+    border-radius: 28px;
+    padding: 1.8rem;
+    margin: 2rem 0;
+    border: 1px solid var(--card-border);
+}
+
+.alerts-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.2rem;
+}
+
+.alerts-header h3 {
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.mute-button {
+    background: none;
+    border: 1px solid var(--input-border);
+    border-radius: 40px;
+    padding: 0.5rem 1.2rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.mute-button.muted {
+    color: var(--active-color);
+    border-color: var(--active-color);
+}
+
+.alerts-list {
+    max-height: 200px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+}
+
+.alert-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.8rem 1.2rem;
+    background: var(--alert-bg);
+    border-left: 5px solid var(--alert-border);
+    border-radius: 16px;
+    animation: slideIn 0.3s ease;
+}
+
+.alert-item i {
+    font-size: 1.4rem;
+    color: var(--alert-border);
+}
+
+.alert-content {
+    flex: 1;
+}
+
+.alert-title {
+    font-weight: 700;
+}
+
+.alert-time {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+/* ======================= Export My Health Report // Export Button ======================= */
+.export-btn {
+    background: linear-gradient(135deg, #4f46e5, #3b82f6); /* modern gradient */
+    color: white;
+    border: none;
+    border-radius: 40px; /* smooth rounded corners */
+    padding: 0.6rem 1.5rem; /* uniform padding with other buttons */
+    font-weight: 600; /* match unified style */
+    font-size: 1.05rem; /* match unified style */
+    cursor: pointer;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15); /* subtle shadow */
+    display: inline-flex; /* consistent with other buttons */
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.export-btn:hover {
+    transform: translateY(-2px) scale(1.03); /* slight lift on hover */
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25); /* deeper shadow */
+    opacity: 1;
+}
+
+.export-btn:active {
+    transform: translateY(0) scale(0.98); /* press effect */
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+/* page sections */
+.page-section {
+    display: none;
+}
+
+.page-section.active {
+    display: block;
+}
+
+/* notifications */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: var(--notification-bg);
+    color: var(--notification-text);
+    padding: 1rem 1.5rem;
+    border-radius: 60px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    z-index: 9999;
+    font-weight: 500;
+    animation: slideIn 0.3s ease;
+}
+
+/* table container (for history, appointments) */
+.table-container {
+    background: var(--card-bg);
+    border-radius: 28px;
+    padding: 1.8rem;
+    margin: 2rem 0;
+    border: 1px solid var(--card-border);
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th {
+    text-align: left;
+    padding: 1rem 0.5rem 0.8rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    border-bottom: 1px solid var(--card-border);
+}
+
+td {
+    padding: 1rem 0.5rem;
+    border-bottom: 1px solid var(--card-border);
+    color: var(--text-primary);
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.25rem 1rem;
+    border-radius: 30px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.status-completed { background: var(--badge-completed-bg); color: var(--badge-completed-color); }
+.status-delayed { background: var(--badge-delayed-bg); color: var(--badge-delayed-color); }
+.status-risk { background: var(--badge-risk-bg); color: var(--badge-risk-color); }
+.status-ongoing { background: var(--badge-ongoing-bg); color: var(--badge-ongoing-color); }
+
+/* form container (profile, settings) */
+.form-container {
+    background: var(--card-bg);
+    border-radius: 28px;
+    padding: 2rem;
+    margin: 2rem 0;
+    border: 1px solid var(--card-border);
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.8rem 1.2rem;
+    border: 1.5px solid var(--input-border);
+    border-radius: 30px;
+    font-size: 0.95rem;
+    background: var(--input-bg);
+    color: var(--text-primary);
+    outline: none;
+    transition: 0.2s;
+}
+
+.form-control:focus {
+    border-color: var(--active-color);
+    box-shadow: 0 0 0 4px rgba(37,99,235,0.1);
+}
+
+/* ======================= Unified Button Style ======================= */
+.btn {
+    background: linear-gradient(135deg, #4f46e5, #3b82f6); /* modern gradient */
+    color: white;
+    border: none;
+    border-radius: 50px; /* smooth rounded corners */
+    padding: 0.9rem 2.2rem; /* uniform padding */
+    font-weight: 600;
+    font-size: 1.05rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15); /* subtle shadow */
+}
+
+.btn:hover {
+    transform: translateY(-2px) scale(1.03); /* slight lift on hover */
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25); /* deeper shadow */
+    opacity: 1;
+}
+
+.btn:active {
+    transform: translateY(0) scale(0.98); /* press effect */
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+/* responsiveness */
+@media (max-width: 1200px) {
+    .stats-grid { grid-template-columns: repeat(2,1fr); }
+}
+
+@media (max-width: 900px) {
+    .app-wrapper { flex-direction: column; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--sidebar-border); }
+    .main-content { padding: 1.5rem; }
+}
+/* ---------- PAGE SECTION ---------- */
+#patientReportsPage {
+    display: block; /* خلي الصفحة تظهر */
+    padding: 2rem 2.5rem; /* نفس padding الرئيسي */
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+/* ---------- PATIENT REPORT FORM ---------- */
+.report-form {
+    background: var(--card-bg);
+    border-radius: 28px;
+    padding: 2rem 2.5rem;
+    margin: 2rem 0;
+    border: 1px solid var(--card-border);
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.03);
+    transition: all 0.2s;
+}
+
+.report-form:hover {
+    border-color: var(--active-color);
+    box-shadow: 0 20px 30px -8px rgba(37,99,235,0.05);
+}
+
+.report-form .form-group {
+    margin-bottom: 1.8rem;
+}
+
+.report-form .form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.report-form .form-group input,
+.report-form .form-group select,
+.report-form .form-group textarea {
+    width: 100%;
+    padding: 0.85rem 1.2rem;
+    border: 1.5px solid var(--input-border);
+    border-radius: 30px;
+    font-size: 0.95rem;
+    background: var(--input-bg);
+    color: var(--text-primary);
+    outline: none;
+    transition: 0.2s;
+    resize: none;
+}
+
+.report-form .form-group input:focus,
+.report-form .form-group select:focus,
+.report-form .form-group textarea:focus {
+    border-color: var(--active-color);
+    box-shadow: 0 0 0 4px rgba(37,99,235,0.1);
+}
+
+/* ======================= Unified Button Style for Report Form ======================= */
+.report-form .btn-submit {
+    background: linear-gradient(135deg, #4f46e5, #3b82f6); /* modern gradient */
+    color: white;
+    border: none;
+    border-radius: 50px; /* smooth rounded corners */
+    padding: 0.9rem 2.2rem; /* uniform padding */
+    font-weight: 600;
+    font-size: 1.05rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem; /* space for icon + text */
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15); /* subtle shadow */
+}
+
+.report-form .btn-submit:hover {
+    transform: translateY(-2px) scale(1.03); /* slight lift on hover */
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25); /* deeper shadow */
+    opacity: 1;
+}
+
+.report-form .btn-submit:active {
+    transform: translateY(0) scale(0.98); /* press effect */
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+/* responsiveness */
+@media (max-width: 900px) {
+    #patientReportsPage {
+        padding: 1.5rem;
+    }
+}
+/* ---------- PROFILE PAGE ENHANCEMENTS ---------- */
+.profile-container {
+    display: flex;
+    gap: 2.5rem;
+    background: var(--card-bg);
+    border-radius: 28px;
+    padding: 2rem;
+    border: 1px solid var(--card-border);
+    margin: 2rem 0;
+}
+
+.profile-picture-section {
+    flex: 0 0 180px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.profile-picture {
+    position: relative;
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 4px solid var(--active-color);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    cursor: pointer;
+}
+
+.profile-picture img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-picture-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+    border-radius: 50%;
+}
+
+.profile-picture:hover .profile-picture-overlay {
+    opacity: 1;
+}
+
+.profile-picture-overlay i {
+    font-size: 2rem;
+    margin-bottom: 0.3rem;
+}
+
+.profile-picture-overlay span {
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.profile-form {
+    flex: 1;
+}
+
+.profile-field {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.profile-field .form-control {
+    flex: 1;
+}
+
+.field-icon {
+    cursor: pointer;
+    padding: 0.5rem;
+    color: var(--text-secondary);
+    transition: color 0.2s;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.field-icon:hover {
+    background: var(--active-bg);
+    color: var(--active-color);
+}
+
+.profile-field .form-control[readonly],
+.profile-field select:disabled {
+    background-color: transparent;
+    border-color: transparent;
+    cursor: default;
+    color: var(--text-primary);
+    padding-left: 0;
+}
+
+.profile-field .form-control[readonly]:focus,
+.profile-field select:disabled:focus {
+    border-color: transparent;
+    box-shadow: none;
+}
+
+.profile-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.password-section {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background: var(--input-bg);
+    border-radius: 20px;
+    border: 1px dashed var(--input-border);
+}
+
+.password-section h4 {
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+.btn-primary {
+    background: var(--active-color);
+    color: white;
+}
+
+.btn-success {
+    background: #10b981;
+    color: white;
+}
+
+.btn-secondary {
+    background: var(--text-secondary);
+    color: white;
+}
+
+.btn-link {
+    background: none;
+    border: none;
+    color: var(--active-color);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+@media (max-width: 768px) {
+    .profile-container {
+        flex-direction: column;
+        align-items: center;
+    }
+}
+/* Password input with toggle */
+.password-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-input-wrapper input {
+    flex: 1;
+    padding-right: 40px;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 10px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+}
+
+.password-toggle:hover {
+    color: var(--active-color);
+}
+
+.password-actions {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: flex-end;
+}
+/* ======================= Unified Button Style for Profile Actions ======================= */
+.profile-actions .btn {
+    border: none;
+    border-radius: 50px; /* smooth rounded corners */
+    padding: 0.9rem 2.2rem; /* uniform padding */
+    font-weight: 600;
+    font-size: 1.05rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem; /* space for icon + text */
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15); /* subtle shadow */
+    color: white;
+}
+
+/* Specific Button Colors (Gradient) */
+.btn-primary {
+    background: linear-gradient(135deg, #4f46e5, #3b82f6); /* purple-blue gradient */
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #16a34a, #4ade80); /* green gradient */
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, #6b7280, #9ca3af); /* gray gradient */
+}
+
+.btn-link {
+    background: linear-gradient(135deg, #f59e0b, #fcd34d); /* yellow gradient */
+    color: #1f2937; /* dark text for contrast */
+}
+
+/* Hover Effects */
+.profile-actions .btn:hover {
+    transform: translateY(-2px) scale(1.03); /* slight lift */
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25); /* deeper shadow */
+    opacity: 1;
+}
+
+/* Active (Press) Effects */
+.profile-actions .btn:active {
+    transform: translateY(0) scale(0.98); /* press effect */
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+/* ======================= Filter Button - Same Color Only ======================= */
+#filterBtn {
+    background: linear-gradient(135deg, #4f46e5, #3b82f6); /* same gradient as other buttons */
+    color: white;
+}
+ .filter-dropdown {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            width: 320px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            z-index: 1000;
+            display: none;
+            overflow: hidden;
+        }
+
+        .filter-dropdown.active {
+            display: block;
+        }
+
+        .filter-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            background: var(--active-bg);
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .filter-header h4 {
+            font-size: 1.2rem;
+            color: var(--text-primary);
+        }
+
+        .close-filter {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .filter-body {
+            padding: 1.5rem;
+        }
+
+        .filter-section {
+            margin-bottom: 1.2rem;
+        }
+
+        .filter-section label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .filter-section select,
+        .filter-section input {
+            width: 100%;
+            padding: 0.6rem;
+            border: 1px solid var(--input-border);
+            border-radius: 12px;
+            background: var(--input-bg);
+            color: var(--text-primary);
+        }
+
+        .filter-footer {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--card-border);
+        }
+
+        .date-dropdown {
+            position: absolute;
+            top: 80px;
+            right: 150px;
+            width: 200px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            z-index: 1000;
+            display: none;
+            overflow: hidden;
+        }
+
+        .date-dropdown.active {
+            display: block;
+        }
+
+        .date-dropdown ul {
+            list-style: none;
+            padding: 0.5rem 0;
+        }
+
+        .date-dropdown li {
+            padding: 0.8rem 1.5rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            color: var(--text-primary);
+        }
+
+        .date-dropdown li:hover {
+            background: var(--hover-bg);
+        }
+
+        .date-dropdown li.active {
+            background: var(--active-bg);
+            color: var(--active-color);
+            font-weight: 600;
+        }
