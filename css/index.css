@@ -498,6 +498,21 @@
       transform: translateY(-3px);
     }
 
+.role-modal {
+    font-family: 'Inter', sans-serif;
+}
+.role-modal select {
+    background-color: var(--input-bg, #f9fafb);
+    color: var(--text-primary, #1f2937);
+}
+.role-modal button {
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+.role-modal button:hover {
+    background-color: #1e40af !important;
+}
+
     /* 2FA & recaptcha row */
     .security-row {
       display: flex;
@@ -533,13 +548,13 @@
       border-top: 1px solid var(--card-border);
       padding-top: 1.5rem;
     }
-    .demo-buttons {
+    /* .demo-buttons {
       display: flex;
       gap: 0.8rem;
       justify-content: center;
       flex-wrap: wrap;
-    }
-    .demo-btn {
+    } */
+    /* .demo-btn {
       background: var(--demo-btn-bg);
       border: 1px solid var(--demo-btn-border);
       padding: 0.6rem 1.2rem;
@@ -555,7 +570,7 @@
     .demo-btn:hover {
       background: rgba(59,130,246,0.2);
       border-color: #3b82f6;
-    }
+    } */
 
     /* toast notification */
     #toast {

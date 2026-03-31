@@ -2,6 +2,28 @@
 (function() {
     "use strict";
 
+    // ==================== AUTH GUARD ====================
+    if (typeof firebase !== 'undefined') {
+        firebase.auth().onAuthStateChanged((user) => {
+            if (!user) {
+                window.location.href = 'index.html';
+                return;
+            }
+            firebase.database().ref(`users/${user.uid}/role`).once('value').then((snapshot) => {
+                const role = snapshot.val();
+                if (role !== 'admin') {
+                    if (role === 'doctor') window.location.href = 'doctor.html';
+                    else if (role === 'patient') window.location.href = 'patient.html';
+                    else window.location.href = 'index.html';
+                }
+            }).catch(() => {
+                window.location.href = 'index.html';
+            });
+        });
+    } else {
+        console.warn('Firebase not loaded, skipping auth guard');
+    }
+
     // ==================== GLOBAL VARIABLES ====================
     let usersData = [
         { name: 'Dr. Emily Davis', email: 'emily.davis@hospital.com', role: 'doctor', status: 'active' },
@@ -237,8 +259,7 @@
 
     // function applyDateFilter(range) {
     //     showNotification(`Date range changed to ${dateSpan.innerText}`);
-    //     // يمكن إضافة منطق لتصفية الجداول حسب التاريخ هنا
-    // }
+    //     // Implement date filtering logic based on the selected range    // }
 
     function filterTables(role, status, startDate, endDate) {
         const userRows = document.querySelectorAll('#usersTable tbody tr');
@@ -258,7 +279,7 @@
             let show = true;
             const rowStatus = row.querySelector('td:nth-child(3) .status-badge').innerText.toLowerCase();
             if (status !== 'all' && rowStatus !== status) show = false;
-            // يمكن إضافة فلتر إضافي حسب الحاجة
+            
             row.style.display = show ? '' : 'none';
         });
 
@@ -416,14 +437,22 @@
     // Show dashboard by default
     showPage('dashboard');
 
-    // ==================== LOGOUT BUTTON (simulated) ====================
+    // ==================== LOGOUT BUTTON ====================
     const footer = document.querySelector('.sidebar-footer');
     const logoutBtn = document.createElement('a');
     logoutBtn.href = 'javascript:void(0)';
     logoutBtn.className = 'menu-item';
     logoutBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i><span>Logout</span>';
-    logoutBtn.addEventListener('click', () => {
-        if (confirm('Logout?')) window.location.href = 'index.html';
+    logoutBtn.addEventListener('click', async () => {
+        if (confirm('Logout?')) {
+            try {
+                await firebase.auth().signOut();
+                window.location.href = 'index.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+                showNotification('Logout failed', 'error');
+            }
+        }
     });
     footer.appendChild(logoutBtn);
 

@@ -4,6 +4,28 @@
 (function() {
     "use strict";
 
+    // ==================== AUTH GUARD ====================
+    if (typeof firebase !== 'undefined') {
+        firebase.auth().onAuthStateChanged((user) => {
+            if (!user) {
+                window.location.href = 'index.html';
+                return;
+            }
+            firebase.database().ref(`users/${user.uid}/role`).once('value').then((snapshot) => {
+                const role = snapshot.val();
+                if (role !== 'doctor') {
+                    if (role === 'admin') window.location.href = 'admin.html';
+                    else if (role === 'patient') window.location.href = 'patient.html';
+                    else window.location.href = 'index.html';
+                }
+            }).catch(() => {
+                window.location.href = 'index.html';
+            });
+        });
+    } else {
+        console.warn('Firebase not loaded, skipping auth guard');
+    }
+
     // ==================== GLOBAL VARIABLES ====================
     let mqttSimInterval;                // Interval for simulated MQTT updates
     let alertSoundEnabled = true;        // Sound toggle state
@@ -391,7 +413,6 @@ reportForm.addEventListener('submit', function(e) {
     });
     // function applyDateFilter(range) {
     //     showNotification(`Date range changed to ${dateSpan.innerText}`);
-    //     // يمكن إضافة منطق لتصفية الجداول حسب التاريخ هنا
     // }
     function filterTables(status, condition, startDate, endDate) {
         const recentRows = document.querySelectorAll('#recentPatientsTable tbody tr');
@@ -436,31 +457,31 @@ document.getElementById('exportBtn').addEventListener('click', function() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
-    // عنوان التقرير
+    // Add title to PDF
     doc.setFontSize(18);
     doc.text("Recent Patients Report", 14, 22);
 
-    // الحصول على بيانات الجدول
+    // Extract table data
     const table = document.getElementById('recentPatientsTable');
     const headers = [];
     const rows = [];
 
-    // استخراج رؤوس الأعمدة (th)
+    //
     const headerCells = table.querySelectorAll('thead th');
     headerCells.forEach(cell => headers.push(cell.innerText));
 
-    // استخراج صفوف البيانات (td)
+    // 
     const bodyRows = table.querySelectorAll('tbody tr');
     bodyRows.forEach(row => {
         const rowData = [];
         row.querySelectorAll('td').forEach(cell => {
-            // نأخذ النص مع تجاهل أي عناصر داخلية (مثل span)
+            // Trim text and handle multi-line content if necessary
             rowData.push(cell.innerText.trim());
         });
         rows.push(rowData);
     });
 
-    // إنشاء الجدول في PDF باستخدام autoTable
+    // Use jsPDF-AutoTable plugin to add table to PDF
     doc.autoTable({
         head: [headers],
         body: rows,
@@ -470,22 +491,22 @@ document.getElementById('exportBtn').addEventListener('click', function() {
         styles: { fontSize: 10 }
     });
 
-    // حفظ الملف
+    // Save the PDF
     doc.save('recent_patients_report.pdf');
 
-    // إشعار للمستخدم
+    // Show success notification 
     showNotification('PDF exported successfully!');
 });
 
     // ==================== EXPORT PATIENT HEALTH BUTTON (All Vitals & Charts) ====================
-    // المعرف الصحيح للزر هو "export-btn-Patient-Health" كما هو موجود في HTML
+    //
     document.getElementById('export-btn-Patient-Health')?.addEventListener('click', function() {
         showNotification('Generating patient health report...');
         
-        // نستخدم setTimeout للسماح بإظهار الإشعار قبل بدء العملية
+        // Delay to ensure charts are fully rendered before capturing them
         setTimeout(() => {
             try {
-                // التحقق من وجود jsPDF
+                // verify jsPDF is loaded
                 if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') {
                     showNotification('PDF library not loaded!', 'error');
                     return;
@@ -494,17 +515,17 @@ document.getElementById('exportBtn').addEventListener('click', function() {
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
                 
-                // عنوان التقرير
+                // add title
                 doc.setFontSize(20);
                 doc.text("Patient Health Report", 105, 15, { align: "center" });
                 
-                // تاريخ التقرير
+                // date and time
                 doc.setFontSize(10);
                 doc.text(`Generated: ${new Date().toLocaleString()}`, 105, 22, { align: "center" });
                 
                 let yOffset = 30;
                 
-                // دالة مساعدة لإضافة صورة canvas مع معالجة الأخطاء
+                // function to add chart image to PDF
                 function addChartImage(canvasId, title, yPos) {
                     const canvas = document.getElementById(canvasId);
                     if (!canvas) {
@@ -524,12 +545,12 @@ document.getElementById('exportBtn').addEventListener('click', function() {
                     }
                 }
                 
-                // إضافة الرسوم البيانية الثلاثة (Charts)
+                // add charts to PDF
                 yOffset = addChartImage('heartChart', 'Heart Rate (bpm)', yOffset);
                 yOffset = addChartImage('spo2Chart', 'SpO₂ (%)', yOffset);
                 yOffset = addChartImage('tempChart', 'Body Temperature (°C)', yOffset);
                 
-                // إضافة القيم الرقمية الحالية (Room Temp, Humidity, Position)
+                // add current vitals section
                 doc.setFontSize(14);
                 doc.text("Current Vitals:", 14, yOffset);
                 yOffset += 8;
@@ -546,7 +567,7 @@ document.getElementById('exportBtn').addEventListener('click', function() {
                 yOffset += 6;
                 doc.text(`• Position: ${position} (${positionIndicator})`, 20, yOffset);
                 
-                // حفظ الملف
+                // Save the PDF
                 doc.save("patient_health_report.pdf");
                 showNotification('Health report ready!');
             } catch (error) {
@@ -569,8 +590,16 @@ document.getElementById('exportBtn').addEventListener('click', function() {
     logoutBtn.href = 'javascript:void(0)';
     logoutBtn.className = 'menu-item';
     logoutBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i><span>Logout</span>';
-    logoutBtn.addEventListener('click', () => {
-        if (confirm('Logout?')) window.location.href = 'index.html';
+    logoutBtn.addEventListener('click', async () => {
+        if (confirm('Logout?')) {
+            try {
+                await firebase.auth().signOut();
+                window.location.href = 'index.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+                showNotification('Logout failed', 'error');
+            }
+        }
     });
     footer.appendChild(logoutBtn);
 

@@ -1,4 +1,4 @@
-// Firebase configuration (replace with your own)
+// Firebase configuration
 const firebaseConfig = {
     apiKey: "AIzaSyDy29ivSun9rqvqTlYhgBI8PBGJhnLJSc0",
     authDomain: "smart-health-monitoring-f97fb.firebaseapp.com",
@@ -10,6 +10,23 @@ const firebaseConfig = {
     measurementId: "G-7BP1801HHC"
 };
 
+// Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const auth = firebase.auth();
+
+// (Optional) Function to save MQTT data into Firebase
+function saveSensorData(topic, value) {
+    if (!db) return;
+    const path = `/SensorReadings/${Date.now()}`;
+    db.ref(path).set({
+        topic: topic,
+        value: value,
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+    });
+}
+
+// Export objects for use in other files
+window.db = db;
+window.auth = auth;
+window.saveSensorData = saveSensorData;
